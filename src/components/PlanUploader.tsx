@@ -1,13 +1,18 @@
 import React, { useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { useInspection } from '../context/InspectionContext';
+import type { MapMode } from '../types/index';
 import * as pdfjsLib from 'pdfjs-dist';
 // Vite specific import for the worker
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-export const PlanUploader: React.FC = () => {
+interface PlanUploaderProps {
+  setMapMode: (mode: MapMode) => void;
+}
+
+export const PlanUploader: React.FC<PlanUploaderProps> = () => {
   const { setPlanImage, setImageDimensions } = useInspection();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);

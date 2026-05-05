@@ -23,3 +23,5 @@ export interface ImageDimensions {
   width: number;
   height: number;
 }
+
+export type MapMode = 'view' | 'add' | 'edit';

@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 flex overflow-hidden relative">
         {!planImage ? (
-          <PlanUploader />
+          <PlanUploader setMapMode={() => {}} />
         ) : (
           <>
             <div className="flex-1 relative">
