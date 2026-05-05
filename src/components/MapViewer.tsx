@@ -74,7 +74,7 @@ interface MapViewerProps {
 }
 
 export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, findings: propFindings, onMapClick, onFindingClick }) => {
-  const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, activeFindingId, setActiveFindingId, updateFinding } = useInspection();
+  const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, activeFindingId, updateFinding } = useInspection();
   const findings = propFindings || contextFindings;
   const planImage = propPlanImage || contextPlanImage;
 
@@ -105,33 +105,33 @@ export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, 
         {planImage && bounds && <ImageOverlay url={planImage} bounds={bounds} />}
         <MapEvents onMapClick={onMapClick} />
 
-        {findings.map((finding, index) => (
-          <Marker
-            key={finding.id}
-            position={[finding.y, finding.x]}
-            draggable={true}
-            icon={createPinIcon(index + 1, finding.criticalityLevel || '', finding.id === activeFindingId)}
-            eventHandlers={{
-              click: (e) => {
-                L.DomEvent.stopPropagation(e); // Prevent map click event
-                setActiveFindingId(finding.id);
-                onFindingClick(finding.id);
-              },
-              dragend: (e) => {
-                const marker = e.target;
-                const position = marker.getLatLng();
-                updateFinding(finding.id, { x: position.lng, y: position.lat });
-              }
-            }}
-          >
-            <Tooltip direction="top" offset={[0, -28]} opacity={1}>
-              <div className="text-center font-bold">
-                #{index + 1}
-                <div className="text-xs font-normal">{finding.locationLabel || 'Unnamed Finding'}</div>
-              </div>
-            </Tooltip>
-          </Marker>
-        ))}
+        {findings.map((finding, index) => {
+          const customIcon = createPinIcon(index + 1, finding.criticalityLevel || '', finding.id === activeFindingId);
+          return (
+            // @ts-ignore - suppressing outdated react-leaflet type definition for 'draggable'
+            <Marker
+              key={finding.id}
+              position={[finding.y, finding.x]}
+              icon={customIcon}
+              draggable={true}
+              eventHandlers={{
+                dragend: (e) => {
+                  const marker = e.target;
+                  const position = marker.getLatLng();
+                  updateFinding(finding.id, { x: position.lng, y: position.lat });
+                },
+                click: () => onFindingClick(finding.id)
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -28]} opacity={1}>
+                <div className="text-center font-bold">
+                  #{index + 1}
+                  <div className="text-xs font-normal">{finding.locationLabel || 'Unnamed Finding'}</div>
+                </div>
+              </Tooltip>
+            </Marker>
+          );
+        })}
       </MapContainer>
     </div>
   );

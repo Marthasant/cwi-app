@@ -5,5 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/app-inspection/',
+  // base: '/app-inspection/', // Commented out for Vercel compatibility
 })
