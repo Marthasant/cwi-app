@@ -67,14 +67,16 @@ export const createPinIcon = (sequenceNumber: number, criticalityLevel: string, 
 };
 
 interface MapViewerProps {
+  planImage: string;
   findings: Finding[];
   onMapClick: (x: number, y: number) => void;
   onFindingClick: (id: string) => void;
 }
 
-export const MapViewer: React.FC<MapViewerProps> = ({ findings: propFindings, onMapClick, onFindingClick }) => {
-  const { planImage, imageDimensions, findings: contextFindings, activeFindingId, setActiveFindingId, updateFinding } = useInspection();
+export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, findings: propFindings, onMapClick, onFindingClick }) => {
+  const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, activeFindingId, setActiveFindingId, updateFinding } = useInspection();
   const findings = propFindings || contextFindings;
+  const planImage = propPlanImage || contextPlanImage;
 
   // Define bounds based on image dimensions
   const bounds = useMemo(() => {

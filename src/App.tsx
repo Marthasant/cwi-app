@@ -123,6 +123,7 @@ const Dashboard: React.FC = () => {
           <>
             <div className="flex-1 relative">
               <MapViewer 
+                planImage={planImage}
                 findings={findings}
                 onMapClick={() => {}}
                 onFindingClick={(id) => setActiveFindingId(id)}
