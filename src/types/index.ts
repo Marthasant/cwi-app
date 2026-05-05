@@ -12,6 +12,7 @@ export interface Finding {
   x: number;
   y: number;
   locationLabel: string;
+  // Optional area or dimensions affected by the finding
   affectedArea?: string;
   photoUrl: string | null;
   description: string;
