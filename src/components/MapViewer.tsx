@@ -67,7 +67,7 @@ export const createPinIcon = (sequenceNumber: number, criticalityLevel: string, 
 };
 
 interface MapViewerProps {
-  planImage: string;
+  planImage: string | null;
   findings: Finding[];
   onMapClick: (x: number, y: number) => void;
   onFindingClick: (id: string) => void;
@@ -102,7 +102,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, 
         style={{ height: '100%', width: '100%', background: '#0f1115' }}
         attributionControl={false}
       >
-        <ImageOverlay url={planImage} bounds={bounds} />
+        {planImage && bounds && <ImageOverlay url={planImage} bounds={bounds} />}
         <MapEvents onMapClick={onMapClick} />
 
         {findings.map((finding, index) => (
