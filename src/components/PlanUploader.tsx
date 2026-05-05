@@ -36,6 +36,7 @@ export const PlanUploader: React.FC = () => {
         await page.render({
           canvasContext: context,
           viewport: viewport
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any).promise;
         
         const dataUrl = canvas.toDataURL('image/png');

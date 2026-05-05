@@ -113,6 +113,7 @@ export const generatePdfReport = async (
     margin: { left: margin, right: margin },
   });
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   currentY = (doc as any).lastAutoTable.finalY + 0.4;
 
   // General Index (autotable)

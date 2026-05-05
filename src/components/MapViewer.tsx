@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useMemo } from 'react';
 import { MapContainer, ImageOverlay, Marker, useMapEvents, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
