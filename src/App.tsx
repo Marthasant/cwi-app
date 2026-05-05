@@ -122,7 +122,11 @@ const Dashboard: React.FC = () => {
         ) : (
           <>
             <div className="flex-1 relative">
-              <MapViewer />
+              <MapViewer 
+                findings={findings}
+                onMapClick={() => {}}
+                onFindingClick={(id) => setActiveFindingId(id)}
+              />
             </div>
             <FindingSidebar />
             

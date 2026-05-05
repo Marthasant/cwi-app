@@ -5,8 +5,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useInspection } from '../context/InspectionContext';
 import { v4 as uuidv4 } from 'uuid';
+import type { Finding } from '../types/index';
 
-const MapEvents = () => {
+const MapEvents: React.FC<{ onMapClick: (x: number, y: number) => void }> = ({ onMapClick }) => {
   const { addFinding, setActiveFindingId, isAddingMode, setIsAddingMode } = useInspection();
 
   useMapEvents({
@@ -14,6 +15,7 @@ const MapEvents = () => {
       if (!isAddingMode) return;
 
       const { lat, lng } = e.latlng;
+      onMapClick(lng, lat);
       const newFindingId = uuidv4();
       addFinding({
         id: newFindingId,
@@ -64,8 +66,15 @@ export const createPinIcon = (sequenceNumber: number, criticalityLevel: string, 
   });
 };
 
-export const MapViewer: React.FC = () => {
-  const { planImage, imageDimensions, findings, activeFindingId, setActiveFindingId, updateFinding } = useInspection();
+interface MapViewerProps {
+  findings: Finding[];
+  onMapClick: (x: number, y: number) => void;
+  onFindingClick: (id: string) => void;
+}
+
+export const MapViewer: React.FC<MapViewerProps> = ({ findings: propFindings, onMapClick, onFindingClick }) => {
+  const { planImage, imageDimensions, findings: contextFindings, activeFindingId, setActiveFindingId, updateFinding } = useInspection();
+  const findings = propFindings || contextFindings;
 
   // Define bounds based on image dimensions
   const bounds = useMemo(() => {
@@ -92,7 +101,7 @@ export const MapViewer: React.FC = () => {
         attributionControl={false}
       >
         <ImageOverlay url={planImage} bounds={bounds} />
-        <MapEvents />
+        <MapEvents onMapClick={onMapClick} />
 
         {findings.map((finding, index) => (
           <Marker
@@ -104,6 +113,7 @@ export const MapViewer: React.FC = () => {
               click: (e) => {
                 L.DomEvent.stopPropagation(e); // Prevent map click event
                 setActiveFindingId(finding.id);
+                onFindingClick(finding.id);
               },
               dragend: (e) => {
                 const marker = e.target;
