@@ -11,13 +11,12 @@ export interface Finding {
   id: string;
   x: number;
   y: number;
-  locationLabel: string;
-  // Optional area or dimensions affected by the finding
-  affectedArea?: string;
   photoUrl: string | null;
   description: string;
-  criticalityLevel: CriticalityLevel | '';
+  criticalityLevel: string;
   recommendations: string;
+  locationLabel?: string;
+  affectedArea?: string;
 }
 
 export interface ImageDimensions {
