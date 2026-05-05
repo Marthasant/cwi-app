@@ -106,6 +106,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, 
         <MapEvents onMapClick={onMapClick} />
 
         {findings.map((finding, index) => {
+          // explicitly include index parameter
           const customIcon = createPinIcon(index + 1, finding.criticalityLevel || '', finding.id === activeFindingId);
           return (
             // @ts-ignore - suppressing outdated react-leaflet type definition for 'draggable'
