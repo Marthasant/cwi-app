@@ -65,7 +65,7 @@ export const createPinIcon = (sequenceNumber: number, criticalityLevel: string, 
 };
 
 export const MapViewer: React.FC = () => {
-  const { planImage, imageDimensions, findings, activeFindingId, setActiveFindingId } = useInspection();
+  const { planImage, imageDimensions, findings, activeFindingId, setActiveFindingId, updateFinding } = useInspection();
 
   // Define bounds based on image dimensions
   const bounds = useMemo(() => {
@@ -98,12 +98,18 @@ export const MapViewer: React.FC = () => {
           <Marker
             key={finding.id}
             position={[finding.y, finding.x]}
+            draggable={true}
             icon={createPinIcon(index + 1, finding.criticalityLevel || '', finding.id === activeFindingId)}
             eventHandlers={{
               click: (e) => {
                 L.DomEvent.stopPropagation(e); // Prevent map click event
                 setActiveFindingId(finding.id);
               },
+              dragend: (e) => {
+                const marker = e.target;
+                const position = marker.getLatLng();
+                updateFinding(finding.id, { x: position.lng, y: position.lat });
+              }
             }}
           >
             <Tooltip direction="top" offset={[0, -28]} opacity={1}>
