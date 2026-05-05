@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useInspection } from '../context/InspectionContext';
 import { v4 as uuidv4 } from 'uuid';
 import type { Finding } from '../types/index';
+import { getMarkerColor } from '../utils/colors';
 
 const MapEvents: React.FC<{ onMapClick: (x: number, y: number) => void }> = ({ onMapClick }) => {
   const { addFinding, setActiveFindingId, isAddingMode, setIsAddingMode } = useInspection();
@@ -72,15 +73,6 @@ interface MapViewerProps {
   onMapClick: (x: number, y: number) => void;
   onFindingClick: (id: string) => void;
 }
-
-const getMarkerColor = (level: string) => {
-  if (!level) return '#334155'; // default gray
-  if (level.includes('Level 1')) return '#ef4444'; // Red
-  if (level.includes('Level 2')) return '#f59e0b'; // Amber/Orange
-  if (level.includes('Level 3')) return '#3b82f6'; // Blue
-  if (level.includes('Level 4')) return '#eab308'; // Yellow
-  return '#334155'; // fallback
-};
 
 export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, findings: propFindings, onMapClick, onFindingClick }) => {
   const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, updateFinding } = useInspection();

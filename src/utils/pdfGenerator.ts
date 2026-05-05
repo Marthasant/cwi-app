@@ -3,14 +3,7 @@ import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import type { Finding } from '../types/index';
 import { CriticalityLevel } from '../types/index';
-
-export const getHexColor = (level: string): string => {
-  if (level.includes('Level 1')) return '#ef4444'; // Red
-  if (level.includes('Level 2')) return '#f97316'; // Orange
-  if (level.includes('Level 3')) return '#3b82f6'; // Blue
-  if (level.includes('Level 4')) return '#facc15'; // Yellow
-  return '#64748b'; // Gray
-};
+import { getMarkerColor } from './colors';
 
 const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -168,7 +161,7 @@ export const generatePdfReport = async (
 
         // Draw pins directly on canvas at X/Y relative coords
         findings.forEach((finding, i) => {
-          const pinColorHex = getHexColor(finding.criticalityLevel || '');
+          const pinColorHex = getMarkerColor(finding.criticalityLevel || '');
           const x = finding.x;
           const y = canvas.height - finding.y;
 
@@ -229,7 +222,7 @@ export const generatePdfReport = async (
       checkPageBreak(1.5); // Minimum space needed to start a finding
       
       // Header: Finding #[Number] - [Location Label]
-      const colorHex = getHexColor(finding.criticalityLevel || '');
+      const colorHex = getMarkerColor(finding.criticalityLevel || '');
       const [r, g, b] = hexToRgb(colorHex);
       
       doc.setFontSize(14);
