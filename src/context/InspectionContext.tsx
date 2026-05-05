@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Finding, ImageDimensions } from '../types';
+import type { Finding, ImageDimensions } from '../types/index';
 
 interface InspectionContextType {
   projectTitle: string;

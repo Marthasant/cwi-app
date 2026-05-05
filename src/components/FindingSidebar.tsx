@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { X, Camera, MapPin, Trash2 } from 'lucide-react';
 import { useInspection } from '../context/InspectionContext';
-import { CriticalityLevel } from '../types';
+import { CriticalityLevel } from '../types/index';
 
 export const FindingSidebar: React.FC = () => {
   const { findings, activeFindingId, setActiveFindingId, updateFinding, deleteFinding } = useInspection();

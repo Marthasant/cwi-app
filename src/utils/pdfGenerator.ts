@@ -1,8 +1,8 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
-import type { Finding } from '../types';
-import { CriticalityLevel } from '../types';
+import type { Finding } from '../types/index';
+import { CriticalityLevel } from '../types/index';
 
 export const getHexColor = (level: string): string => {
   if (level.includes('Level 1')) return '#ef4444'; // Red

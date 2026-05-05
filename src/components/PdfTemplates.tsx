@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Finding, ImageDimensions } from '../types';
+import type { Finding, ImageDimensions } from '../types/index';
 import { getPinColor } from './MapViewer';
 
 const MasterMap: React.FC<{ findings: Finding[]; planImage: string; imageDimensions: ImageDimensions }> = ({ findings, planImage, imageDimensions }) => {

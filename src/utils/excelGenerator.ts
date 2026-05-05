@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Finding } from '../types';
+import type { Finding } from '../types/index';
 
 export const exportToExcel = (findings: Finding[], projectTitle: string) => {
   // Or actually, if we want sequential dynamic numbering based on array order as requested (1, 2, 3), 
