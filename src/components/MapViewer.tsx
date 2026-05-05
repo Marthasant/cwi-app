@@ -73,8 +73,17 @@ interface MapViewerProps {
   onFindingClick: (id: string) => void;
 }
 
+const getMarkerColor = (level: string) => {
+  if (!level) return '#334155'; // default gray
+  if (level.includes('Level 1')) return '#ef4444'; // Red
+  if (level.includes('Level 2')) return '#f59e0b'; // Amber/Orange
+  if (level.includes('Level 3')) return '#3b82f6'; // Blue
+  if (level.includes('Level 4')) return '#eab308'; // Yellow
+  return '#334155'; // fallback
+};
+
 export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, findings: propFindings, onMapClick, onFindingClick }) => {
-  const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, activeFindingId, updateFinding } = useInspection();
+  const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, updateFinding } = useInspection();
   const findings = propFindings || contextFindings;
   const planImage = propPlanImage || contextPlanImage;
 
@@ -107,7 +116,12 @@ export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, 
 
         {findings.map((finding, index) => {
           // explicitly include index parameter
-          const customIcon = createPinIcon(index + 1, finding.criticalityLevel || '', finding.id === activeFindingId);
+          const customIcon = L.divIcon({
+            className: 'custom-finding-pin',
+            html: `<div style="background-color: ${getMarkerColor(finding.criticalityLevel || '')}; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          });
           return (
             // @ts-ignore - suppressing outdated react-leaflet type definition for 'draggable'
             <Marker
