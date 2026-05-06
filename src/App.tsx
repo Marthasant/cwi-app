@@ -56,11 +56,10 @@ const Dashboard: React.FC = () => {
 
     try {
       await generatePdfReport(
-        findings,
+        floors,
+        findings,       // all findings — generator filters per floor internally
         projectTitle,
         inspectorName,
-        planImage,
-        imageDimensions,
         signatureDataUrl,
         inspectionDate,
         certNumber
