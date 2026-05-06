@@ -16,19 +16,41 @@ const Dashboard: React.FC = () => {
   const sigPadRef = React.useRef<SignatureCanvas>(null);
 
   const handleGeneratePdf = async () => {
-    if (sigPadRef.current?.isEmpty()) {
-      alert("Please provide a signature first.");
+    // Guard: ensure ref is mounted
+    if (!sigPadRef.current) {
+      alert("Signature pad not ready. Please try again.");
       return;
     }
-    const signatureDataUrl = sigPadRef.current?.getTrimmedCanvas().toDataURL('image/png');
-    setShowSignatureModal(false);
-    
-    setIsGenerating(true);
+    // Guard: ensure signature is drawn
+    if (sigPadRef.current.isEmpty()) {
+      alert("Please provide a signature before generating the report.");
+      return;
+    }
+
+    let signatureDataUrl: string | undefined;
     try {
-      await generatePdfReport(findings, projectTitle, inspectorName, planImage, imageDimensions, signatureDataUrl);
+      signatureDataUrl = sigPadRef.current.getTrimmedCanvas().toDataURL('image/png');
+    } catch {
+      alert("Could not read signature. Please clear and re-draw it.");
+      return;
+    }
+
+    // Close modal and show generating state immediately
+    setShowSignatureModal(false);
+    setIsGenerating(true);
+
+    try {
+      await generatePdfReport(
+        findings,
+        projectTitle,
+        inspectorName,
+        planImage,
+        imageDimensions,
+        signatureDataUrl
+      );
     } catch (error) {
-      console.error("Failed to generate PDF:", error);
-      alert("Failed to generate PDF. Check console for details.");
+      console.error("PDF generation failed:", error);
+      alert(`PDF generation failed: ${error instanceof Error ? error.message : String(error)}\n\nCheck the browser console for full details.`);
     } finally {
       setIsGenerating(false);
     }
