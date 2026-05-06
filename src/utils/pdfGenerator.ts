@@ -133,15 +133,19 @@ export const generatePdfReport = async (
   });
 
 
-  // --- PAGE 2: The Master Plan (Visual Index) ---
-  doc.addPage();
+  // --- PAGE 2: The Master Plan (Visual Index) — LANDSCAPE ---
+  doc.addPage('letter', 'landscape');
+  // Landscape letter: 11" wide x 8.5" tall
+  const lsPageWidth = 11;
+  const lsPageHeight = 8.5;
+  const lsContentWidth = lsPageWidth - (margin * 2);  // 9.5"
   currentY = margin;
-  
+
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text("Master Map", margin, currentY + 0.2);
-  currentY += 0.4;
+  currentY += 0.5;
 
   if (planImage && imageDimensions) {
     try {
@@ -183,18 +187,17 @@ export const generatePdfReport = async (
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.9);
-        const imgWidth = contentWidth;
-        let imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        const maxAvailableHeight = pageHeight - currentY - margin;
-        if (imgHeight > maxAvailableHeight) {
-          imgHeight = maxAvailableHeight;
-          const scaledWidth = (canvas.width * imgHeight) / canvas.height;
-          const offsetX = margin + ((contentWidth - scaledWidth) / 2);
-          doc.addImage(imgData, 'JPEG', offsetX, currentY, scaledWidth, imgHeight);
-        } else {
-          doc.addImage(imgData, 'JPEG', margin, currentY, imgWidth, imgHeight);
+        // Fit image within landscape content area preserving aspect ratio
+        const availH = lsPageHeight - currentY - margin;
+        let imgW = lsContentWidth;
+        let imgH = (canvas.height * imgW) / canvas.width;
+        if (imgH > availH) {
+          imgH = availH;
+          imgW = (canvas.width * imgH) / canvas.height;
         }
+        // Center horizontally
+        const offsetX = margin + (lsContentWidth - imgW) / 2;
+        doc.addImage(imgData, 'JPEG', offsetX, currentY, imgW, imgH);
       }
     } catch (e) {
       console.error("Failed to capture master map with canvas", e);
@@ -205,9 +208,9 @@ export const generatePdfReport = async (
   }
 
 
-  // --- PAGE 3+: Detailed Findings Log ---
+  // --- PAGE 3+: Detailed Findings Log — back to PORTRAIT ---
   if (findings.length > 0) {
-    doc.addPage();
+    doc.addPage('letter', 'portrait');
     currentY = margin;
     
     doc.setFontSize(18);
