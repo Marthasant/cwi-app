@@ -42,9 +42,17 @@ const Dashboard: React.FC = () => {
 
     let signatureDataUrl: string | undefined;
     try {
-      // getCanvas() is more reliable than getTrimmedCanvas() which can fail
-      // when the internal canvas dimensions cause cropping edge cases
-      signatureDataUrl = sigPadRef.current.getCanvas().toDataURL('image/png');
+      // Extract as JPEG — JPEG has no alpha channel, so background is always
+      // solid white. This is the definitive fix for transparent PNG → black in jsPDF.
+      const rawCanvas = sigPadRef.current.getCanvas();
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = rawCanvas.width;
+      tempCanvas.height = rawCanvas.height;
+      const ctx = tempCanvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      ctx.drawImage(rawCanvas, 0, 0);
+      signatureDataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
     } catch {
       alert("Could not read signature. Please clear and re-draw it.");
       return;
@@ -216,6 +224,8 @@ const Dashboard: React.FC = () => {
             <div className="p-4 bg-white">
               <SignatureCanvas
                 ref={sigPadRef}
+                penColor="black"
+                backgroundColor="white"
                 canvasProps={{
                   className: 'w-full h-48 border-2 border-dashed border-gray-300 rounded-lg',
                   style: { backgroundColor: 'white' }

@@ -327,10 +327,11 @@ export const generatePdfReport = async (
   // Signature with white background fill to prevent black PNG
   doc.text('Inspector Signature:', margin, currentY);
   if (signatureDataUrl) {
-    // Draw white rectangle behind signature image to prevent transparency → black
+    // White rect ensures no bleed if caller somehow passes PNG with transparency
     doc.setFillColor(255, 255, 255);
     doc.rect(margin + 1.5, currentY - 0.45, 2.1, 0.95, 'F');
-    doc.addImage(signatureDataUrl, 'PNG', margin + 1.5, currentY - 0.4, 2, 0.8);
+    // Format is JPEG — caller extracts as JPEG so no transparency possible
+    doc.addImage(signatureDataUrl, 'JPEG', margin + 1.5, currentY - 0.4, 2, 0.8);
   }
   doc.setDrawColor(0, 0, 0);
   doc.line(margin + 1.5, currentY + 0.1, margin + 1.5 + lineLength, currentY + 0.1);
