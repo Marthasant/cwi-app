@@ -7,8 +7,16 @@ export const CriticalityLevel = {
 
 export type CriticalityLevel = typeof CriticalityLevel[keyof typeof CriticalityLevel];
 
+export interface Floor {
+  id: string;
+  name: string;
+  planImage: string | null;
+  imageDimensions: { width: number; height: number } | null;
+}
+
 export interface Finding {
   id: string;
+  floorId: string;
   x: number;
   y: number;
   photoUrl: string | null;

@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Finding } from '../types/index';
 import { getMarkerColor } from '../utils/colors';
 
-const MapEvents: React.FC<{ onMapClick: (x: number, y: number) => void }> = ({ onMapClick }) => {
+const MapEvents: React.FC<{ onMapClick: (x: number, y: number) => void; floorId: string }> = ({ onMapClick, floorId }) => {
   const { addFinding, setActiveFindingId, isAddingMode, setIsAddingMode } = useInspection();
 
   useMapEvents({
@@ -20,8 +20,9 @@ const MapEvents: React.FC<{ onMapClick: (x: number, y: number) => void }> = ({ o
       const newFindingId = uuidv4();
       addFinding({
         id: newFindingId,
-        x: lng, // X maps to Lng in Leaflet CRS.Simple
-        y: lat, // Y maps to Lat in Leaflet CRS.Simple
+        floorId,
+        x: lng,
+        y: lat,
         locationLabel: '',
         photoUrl: null,
         description: '',
@@ -72,9 +73,10 @@ interface MapViewerProps {
   findings: Finding[];
   onMapClick: (x: number, y: number) => void;
   onFindingClick: (id: string) => void;
+  currentFloorId?: string;
 }
 
-export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, findings: propFindings, onMapClick, onFindingClick }) => {
+export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, findings: propFindings, onMapClick, onFindingClick, currentFloorId = '1' }) => {
   const { planImage: contextPlanImage, imageDimensions, findings: contextFindings, updateFinding } = useInspection();
   const findings = propFindings || contextFindings;
   const planImage = propPlanImage || contextPlanImage;
@@ -104,7 +106,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({ planImage: propPlanImage, 
         attributionControl={false}
       >
         {planImage && bounds && <ImageOverlay url={planImage} bounds={bounds} />}
-        <MapEvents onMapClick={onMapClick} />
+        <MapEvents onMapClick={onMapClick} floorId={currentFloorId} />
 
         {findings.map((finding, index) => {
           // explicitly include index parameter

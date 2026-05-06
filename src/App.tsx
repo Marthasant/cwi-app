@@ -10,7 +10,15 @@ import { AlertTriangle, FileText, Trash2, MapPin, FileSpreadsheet, X } from 'luc
 import SignatureCanvas from 'react-signature-canvas';
 
 const Dashboard: React.FC = () => {
-  const { planImage, imageDimensions, findings, clearInspection, isAddingMode, setIsAddingMode, setActiveFindingId, projectTitle, setProjectTitle, inspectorName, setInspectorName } = useInspection();
+  const {
+    planImage, imageDimensions, findings,
+    clearInspection, isAddingMode, setIsAddingMode, setActiveFindingId,
+    projectTitle, setProjectTitle, inspectorName, setInspectorName,
+    floors, currentFloorId, setCurrentFloorId, addFloor,
+  } = useInspection();
+
+  // Findings filtered to the active floor only
+  const currentFindings = findings.filter(f => f.floorId === currentFloorId);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [certNumber, setCertNumber] = useState('');
@@ -147,24 +155,53 @@ const Dashboard: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex overflow-hidden relative">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Floor Selector Bar */}
+        <div className="flex items-center gap-2 px-4 py-2 bg-dark-panel border-b border-dark-border z-10 flex-shrink-0">
+          <span className="text-xs text-slate-400 font-semibold uppercase tracking-widest mr-1">Floor:</span>
+          {floors.map(floor => (
+            <button
+              key={floor.id}
+              onClick={() => { setCurrentFloorId(floor.id); setActiveFindingId(null); }}
+              className={`px-3 py-1 rounded-md text-sm font-semibold transition-all border ${
+                floor.id === currentFloorId
+                  ? 'bg-brand-amber text-black border-brand-amber'
+                  : 'bg-dark-bg text-slate-300 border-dark-border hover:border-brand-amber hover:text-brand-amber'
+              }`}
+            >
+              {floor.name}
+            </button>
+          ))}
+          {floors.length < 10 && (
+            <button
+              onClick={addFloor}
+              className="px-3 py-1 rounded-md text-sm font-semibold border border-dashed border-slate-500 text-slate-400 hover:border-brand-amber hover:text-brand-amber transition-all"
+            >
+              + Add Floor
+            </button>
+          )}
+        </div>
+
+        {/* Map / Uploader Area */}
+        <div className="flex-1 flex overflow-hidden">
         {!planImage ? (
           <PlanUploader setMapMode={() => { /* no-op */ }} />
         ) : (
           <>
             <div className="flex-1 relative">
-              <MapViewer 
+              <MapViewer
                 planImage={planImage}
-                findings={findings}
+                findings={currentFindings}
                 onMapClick={() => {}}
                 onFindingClick={(id) => setActiveFindingId(id)}
+                currentFloorId={currentFloorId}
               />
             </div>
             <FindingSidebar />
-            
-            <PdfTemplates findings={findings} planImage={planImage} imageDimensions={imageDimensions} />
+            <PdfTemplates findings={currentFindings} planImage={planImage} imageDimensions={imageDimensions} />
           </>
         )}
+        </div>
       </main>
 
       {/* Signature Modal */}
