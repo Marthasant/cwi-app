@@ -29,7 +29,9 @@ const Dashboard: React.FC = () => {
 
     let signatureDataUrl: string | undefined;
     try {
-      signatureDataUrl = sigPadRef.current.getTrimmedCanvas().toDataURL('image/png');
+      // getCanvas() is more reliable than getTrimmedCanvas() which can fail
+      // when the internal canvas dimensions cause cropping edge cases
+      signatureDataUrl = sigPadRef.current.getCanvas().toDataURL('image/png');
     } catch {
       alert("Could not read signature. Please clear and re-draw it.");
       return;
