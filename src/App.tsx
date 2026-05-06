@@ -13,6 +13,11 @@ const Dashboard: React.FC = () => {
   const { planImage, imageDimensions, findings, clearInspection, isAddingMode, setIsAddingMode, setActiveFindingId, projectTitle, setProjectTitle, inspectorName, setInspectorName } = useInspection();
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [certNumber, setCertNumber] = useState('');
+  const [inspectionDate, setInspectionDate] = useState(() => {
+    const today = new Date();
+    return `${(today.getMonth() + 1).toString().padStart(2,'0')}/${today.getDate().toString().padStart(2,'0')}/${today.getFullYear()}`;
+  });
   const sigPadRef = React.useRef<SignatureCanvas>(null);
 
   const handleGeneratePdf = async () => {
@@ -48,7 +53,9 @@ const Dashboard: React.FC = () => {
         inspectorName,
         planImage,
         imageDimensions,
-        signatureDataUrl
+        signatureDataUrl,
+        inspectionDate,
+        certNumber
       );
     } catch (error) {
       console.error("PDF generation failed:", error);
@@ -174,9 +181,33 @@ const Dashboard: React.FC = () => {
               <SignatureCanvas
                 ref={sigPadRef}
                 canvasProps={{
-                  className: 'w-full h-48 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50'
+                  className: 'w-full h-48 border-2 border-dashed border-gray-300 rounded-lg',
+                  style: { backgroundColor: 'white' }
                 }}
               />
+            </div>
+            {/* Cert # and Date inputs */}
+            <div className="px-4 pb-4 bg-[#15181e] grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Inspection Date</label>
+                <input
+                  type="text"
+                  value={inspectionDate}
+                  onChange={(e) => setInspectionDate(e.target.value)}
+                  className="w-full bg-dark-bg border border-dark-border rounded-md px-3 py-1.5 text-sm text-white focus:border-brand-amber focus:outline-none"
+                  placeholder="MM/DD/YYYY"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">CWI Cert #</label>
+                <input
+                  type="text"
+                  value={certNumber}
+                  onChange={(e) => setCertNumber(e.target.value)}
+                  className="w-full bg-dark-bg border border-dark-border rounded-md px-3 py-1.5 text-sm text-white focus:border-brand-amber focus:outline-none"
+                  placeholder="e.g. 9999999"
+                />
+              </div>
             </div>
             <div className="p-4 border-t border-dark-border bg-[#15181e] flex justify-end gap-3">
               <button 

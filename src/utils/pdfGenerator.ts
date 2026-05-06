@@ -20,7 +20,9 @@ export const generatePdfReport = async (
   inspectorName: string = "",
   planImage: string | null = null,
   imageDimensions: { width: number, height: number } | null = null,
-  signatureDataUrl?: string
+  signatureDataUrl?: string,
+  inspectionDate: string = new Date().toLocaleDateString(),
+  certNumber: string = ''
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -278,10 +280,16 @@ export const generatePdfReport = async (
 
       if (finding.criticalityLevel) {
         doc.setFont("helvetica", "bold");
-        doc.text(`Criticality: `, margin, currentY);
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        const critLabel = 'Criticality: ';
+        const critValue = finding.criticalityLevel;
+        const critFull = `${critLabel}${critValue}`;
+        const splitCrit = doc.splitTextToSize(critFull, contentWidth);
+        checkPageBreak(splitCrit.length * 0.18 + 0.1);
+        doc.text(splitCrit, margin, currentY);
         doc.setFont("helvetica", "normal");
-        doc.text(finding.criticalityLevel, margin + 0.8, currentY);
-        currentY += 0.25;
+        currentY += (splitCrit.length * 0.18) + 0.15;
       }
 
       writeDetail("Description", finding.description);
@@ -322,12 +330,51 @@ export const generatePdfReport = async (
   doc.line(margin + 1.5, currentY + 0.1, margin + 1.5 + lineLength, currentY + 0.1);
   currentY += 0.5;
 
+  // Print actual date value from UI
   doc.text('Date:', margin, currentY);
-  doc.line(margin + 0.5, currentY, margin + 0.5 + lineLength, currentY);
+  doc.setFont("helvetica", "normal");
+  doc.text(inspectionDate || '', margin + 0.6, currentY);
   currentY += 0.5;
 
+  // Print actual cert number from UI
   doc.text('CWI Seal / Cert #:', margin, currentY);
-  doc.line(margin + 1.5, currentY, margin + 1.5 + lineLength, currentY);
+  doc.setFont("helvetica", "normal");
+  doc.text(certNumber || '', margin + 1.6, currentY);
+  currentY += 0.7;
+
+  // --- Final Summary Table ---
+  checkPageBreak(2.5);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text('Final Summary by Criticality', margin, currentY);
+  currentY += 0.15;
+
+  const finalCounts = {
+    [CriticalityLevel.LEVEL_1]: 0,
+    [CriticalityLevel.LEVEL_2]: 0,
+    [CriticalityLevel.LEVEL_3]: 0,
+    [CriticalityLevel.LEVEL_4]: 0,
+  };
+  findings.forEach(f => {
+    if (f.criticalityLevel && Object.values(CriticalityLevel).includes(f.criticalityLevel as CriticalityLevel)) {
+      finalCounts[f.criticalityLevel as CriticalityLevel]++;
+    }
+  });
+  const finalSummaryBody = Object.values(CriticalityLevel).map(level => [
+    level.split(' - ')[0],
+    finalCounts[level] || 0,
+  ]);
+  finalSummaryBody.push(['TOTAL', findings.length]);
+
+  autoTable(doc, {
+    startY: currentY,
+    head: [['Criticality Level', 'Count']],
+    body: finalSummaryBody,
+    theme: 'grid',
+    headStyles: { fillColor: [40, 40, 40] },
+    margin: { left: margin, right: margin },
+  });
 
   const sanitizedTitle = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'inspection_report';
   doc.save(`${sanitizedTitle}.pdf`);
