@@ -82,6 +82,10 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inspectorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Always-current ref to findings — prevents stale-closure bugs in saveFinding
+  const findingsRef = useRef<Finding[]>(findings);
+  useEffect(() => { findingsRef.current = findings; }, [findings]);
+
   // ----- Setters that debounce cloud sync -----------------------------------
   const setProjectTitle = (title: string) => {
     setProjectTitleState(title);
@@ -242,12 +246,14 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setFindings(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
   };
 
-  /** Call when the user presses "Save Changes" — syncs the full finding to the DB. */
+  /** Call when the user presses "Save Changes" — syncs the full finding to the DB.
+   *  Reads from findingsRef.current so it always gets the LATEST state,
+   *  not a stale closure captured at render time (fixes the photo_url race condition). */
   const saveFinding = async (id: string) => {
     if (!buildingId) return;
-    const finding = findings.find(f => f.id === id);
+    const finding = findingsRef.current.find(f => f.id === id);
     if (!finding) return;
-    const floorFindings = findings.filter(f => f.floorId === finding.floorId);
+    const floorFindings = findingsRef.current.filter(f => f.floorId === finding.floorId);
     const pinNumber = finding.pinNumber ?? (floorFindings.findIndex(f => f.id === id) + 1);
     await upsertFinding(buildingId, finding, pinNumber);
   };

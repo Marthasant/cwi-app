@@ -41,8 +41,13 @@ export const FindingSidebar: React.FC = () => {
         .from('finding_photos')
         .getPublicUrl(fileName);
 
-      // Use camelCase photoUrl to match the local Finding type
+      // 1. Write the confirmed cloud URL into local state
       updateFinding(finding.id, { photoUrl: publicUrlData.publicUrl });
+
+      // 2. Immediately persist to Supabase so the URL is never lost.
+      //    saveFinding reads from findingsRef.current (always latest) so the
+      //    photo_url we just set above will be included in the upsert payload.
+      await saveFinding(finding.id);
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -79,6 +84,11 @@ export const FindingSidebar: React.FC = () => {
   };
 
   const saveLabel = () => {
+    if (isUploadingPhoto) return (
+      <span className="flex items-center justify-center gap-1.5">
+        <Loader2 size={14} className="animate-spin" /> Uploading…
+      </span>
+    );
     if (saveStatus === 'saving') return (
       <span className="flex items-center justify-center gap-1.5">
         <Cloud size={14} className="animate-pulse" /> Saving…
@@ -251,9 +261,11 @@ export const FindingSidebar: React.FC = () => {
         </button>
         <button
           onClick={handleSave}
-          disabled={saveStatus !== 'idle'}
+          disabled={saveStatus !== 'idle' || isUploadingPhoto}
           className={`flex-1 py-2.5 font-semibold rounded-lg shadow-md transition-all ${
-            saveStatus === 'saved'
+            isUploadingPhoto
+              ? 'bg-sky-800 text-sky-300 cursor-wait'
+              : saveStatus === 'saved'
               ? 'bg-emerald-600 text-white'
               : saveStatus === 'saving'
               ? 'bg-sky-700 text-white cursor-wait'
