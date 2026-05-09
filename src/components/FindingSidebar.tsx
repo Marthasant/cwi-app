@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { X, Camera, MapPin, Trash2, Cloud, CheckCircle } from 'lucide-react';
+import { X, Camera, MapPin, Trash2, Cloud, CheckCircle, Loader2 } from 'lucide-react';
 import { useInspection } from '../context/InspectionContext';
 import { CriticalityLevel } from '../types/index';
-import { uploadFindingPhoto } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export const FindingSidebar: React.FC = () => {
   const {
@@ -15,7 +15,7 @@ export const FindingSidebar: React.FC = () => {
   } = useInspection();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [photoStatus, setPhotoStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const finding = findings.find(f => f.id === activeFindingId);
 
@@ -25,25 +25,31 @@ export const FindingSidebar: React.FC = () => {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file');
-      return;
-    }
 
-    // Show local preview immediately for instant feedback
-    const objectUrl = URL.createObjectURL(file);
-    updateFinding(finding.id, { photoUrl: objectUrl });
+    setIsUploadingPhoto(true);
+    try {
+      const fileExt = file.name.split('.').pop() ?? 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    // Upload the File directly to the finding_photos bucket
-    setPhotoStatus('uploading');
-    const publicUrl = await uploadFindingPhoto(file);
-    if (publicUrl) {
-      // Replace blob URL with the permanent cloud URL
-      updateFinding(finding.id, { photoUrl: publicUrl });
-      setPhotoStatus('done');
-    } else {
-      // Keep the local blob URL as fallback; user is still warned via console
-      setPhotoStatus('idle');
+      const { error } = await supabase.storage
+        .from('finding_photos')
+        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('finding_photos')
+        .getPublicUrl(fileName);
+
+      // Use camelCase photoUrl to match the local Finding type
+      updateFinding(finding.id, { photoUrl: publicUrlData.publicUrl });
+
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[FindingSidebar] Photo upload error:', err);
+      alert(`Upload failed: ${message}`);
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -137,16 +143,36 @@ export const FindingSidebar: React.FC = () => {
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-300">
             Visual Evidence
-            {photoStatus === 'uploading' && (
-              <span className="ml-2 text-xs text-sky-400 animate-pulse font-normal">Uploading…</span>
-            )}
-            {photoStatus === 'done' && (
-              <span className="ml-2 text-xs text-emerald-400 font-normal">✓ Synced</span>
-            )}
           </label>
-          {finding.photoUrl ? (
+
+          {/* Always show the file input trigger */}
+          {!finding.photoUrl && !isUploadingPhoto && (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full h-32 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:text-brand-amber hover:border-brand-amber cursor-pointer transition-colors"
+            >
+              <Camera size={28} className="mb-2" />
+              <span className="text-sm">Click to upload photo</span>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {isUploadingPhoto && (
+            <div className="w-full h-32 border-2 border-dashed border-sky-500/50 rounded-lg flex flex-col items-center justify-center text-sky-400 gap-2">
+              <Loader2 size={28} className="animate-spin" />
+              <p className="text-sm">Uploading photo to cloud…</p>
+            </div>
+          )}
+
+          {/* Confirmed cloud image */}
+          {finding.photoUrl && !isUploadingPhoto && (
             <div className="relative group rounded-lg overflow-hidden border border-slate-600">
-              <img src={finding.photoUrl} alt="Finding" className="w-full h-48 object-cover" />
+              <img
+                src={finding.photoUrl}
+                alt="Finding"
+                className="w-full h-48 object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
                   onClick={removePhoto}
@@ -156,22 +182,16 @@ export const FindingSidebar: React.FC = () => {
                 </button>
               </div>
             </div>
-          ) : (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-32 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:text-brand-amber hover:border-brand-amber cursor-pointer transition-colors"
-            >
-              <Camera size={28} className="mb-2" />
-              <span className="text-sm">Click to upload photo</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handlePhotoUpload}
-              />
-            </div>
           )}
+
+          {/* Hidden file input — always mounted so the ref is always valid */}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handlePhotoUpload}
+          />
         </div>
 
         {/* Criticality Level */}
