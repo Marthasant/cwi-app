@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud } from 'lucide-react';
+import { UploadCloud, Cloud, CheckCircle } from 'lucide-react';
 import { useInspection } from '../context/InspectionContext';
 import type { MapMode } from '../types/index';
 import * as pdfjsLib from 'pdfjs-dist';
-// Vite specific import for the worker
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { uploadFloorPlan } from '../lib/api';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -13,9 +13,29 @@ interface PlanUploaderProps {
 }
 
 export const PlanUploader: React.FC<PlanUploaderProps> = () => {
-  const { setPlanImage, setImageDimensions } = useInspection();
+  const { setPlanImage, setImageDimensions, buildingId, currentFloorId, updateFloor } = useInspection();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
+
+  /**
+   * After the image data-URL / blob-URL is ready, upload to Supabase Storage
+   * and update the floor row with the public URL (so other devices can load it).
+   */
+  const syncToCloud = async (blob: Blob, ext: string) => {
+    if (!buildingId || !currentFloorId) return;
+    setUploadStatus('uploading');
+    try {
+      const publicUrl = await uploadFloorPlan(buildingId, currentFloorId, blob, ext);
+      if (publicUrl) {
+        updateFloor(currentFloorId, { floorPlanUrl: publicUrl });
+      }
+      setUploadStatus('done');
+    } catch (err) {
+      console.error('[PlanUploader] cloud sync failed:', err);
+      setUploadStatus('idle');
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,28 +47,32 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
-        
-        // Render at a higher scale for better resolution
+
         const viewport = page.getViewport({ scale: 2.0 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        
         if (!context) throw new Error('Could not get canvas context');
-        
+
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        
+
         await page.render({
           canvasContext: context,
-          viewport: viewport
+          viewport: viewport,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any).promise;
-        
+
         const dataUrl = canvas.toDataURL('image/png');
         setImageDimensions({ width: canvas.width, height: canvas.height });
         setPlanImage(dataUrl);
+
+        // Upload to cloud: convert data-URL → blob
+        canvas.toBlob(async (blob) => {
+          if (blob) await syncToCloud(blob, 'png');
+        }, 'image/png');
+
       } catch (error) {
-        console.error("Error parsing PDF:", error);
+        console.error('[PlanUploader] PDF error:', error);
         alert('Failed to parse PDF. Please try a different file.');
       } finally {
         setIsLoading(false);
@@ -61,11 +85,14 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
       return;
     }
 
+    // Image path
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
       setPlanImage(objectUrl);
+      const ext = file.type.split('/')[1] || 'png';
+      await syncToCloud(file, ext);
     };
     img.onerror = () => {
       alert('Failed to load image. Please try another file.');
@@ -74,9 +101,24 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
     img.src = objectUrl;
   };
 
+  const cloudStatusLabel = () => {
+    if (!buildingId) return null;
+    if (uploadStatus === 'uploading') return (
+      <span className="flex items-center gap-1 text-xs text-sky-400 animate-pulse">
+        <Cloud size={13} /> Uploading to cloud…
+      </span>
+    );
+    if (uploadStatus === 'done') return (
+      <span className="flex items-center gap-1 text-xs text-emerald-400">
+        <CheckCircle size={13} /> Saved to cloud
+      </span>
+    );
+    return null;
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-full w-full bg-dark-bg text-slate-300 p-8">
-      <div 
+      <div
         className={`w-full max-w-2xl p-12 border-2 border-dashed border-slate-600 rounded-2xl bg-dark-panel transition-colors flex flex-col items-center gap-4 shadow-xl ${isLoading ? 'opacity-50 cursor-wait' : 'hover:border-brand-amber cursor-pointer'}`}
         onClick={() => !isLoading && fileInputRef.current?.click()}
       >
@@ -91,16 +133,17 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
           {isLoading ? 'Processing PDF...' : 'Upload Floor Plan'}
         </h2>
         <p className="text-slate-400 text-center text-sm max-w-md leading-relaxed">
-          {isLoading 
-            ? 'Converting the first page of your PDF into an interactive map canvas. Please wait...' 
+          {isLoading
+            ? 'Converting the first page of your PDF into an interactive map canvas. Please wait...'
             : 'Select a PNG, JPG, or PDF file of the parking garage floor plan. This will act as the canvas for your inspection.'}
         </p>
-        <input 
-          type="file" 
-          accept="image/*,application/pdf" 
-          className="hidden" 
-          ref={fileInputRef} 
-          onChange={handleFileChange} 
+        {cloudStatusLabel()}
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleFileChange}
           disabled={isLoading}
         />
         {!isLoading && (

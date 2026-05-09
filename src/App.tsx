@@ -6,7 +6,7 @@ import { FindingSidebar } from './components/FindingSidebar';
 import { PdfTemplates } from './components/PdfTemplates';
 import { generatePdfReport } from './utils/pdfGenerator';
 import { exportToExcel } from './utils/excelGenerator';
-import { AlertTriangle, FileText, Trash2, MapPin, FileSpreadsheet, X } from 'lucide-react';
+import { AlertTriangle, FileText, Trash2, MapPin, FileSpreadsheet, X, Cloud } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 
 const Dashboard: React.FC = () => {
@@ -15,6 +15,7 @@ const Dashboard: React.FC = () => {
     clearInspection, isAddingMode, setIsAddingMode, setActiveFindingId,
     projectTitle, setProjectTitle, inspectorName, setInspectorName,
     floors, currentFloorId, setCurrentFloorId, addFloor,
+    isSyncing,
   } = useInspection();
 
   // Findings filtered to the active floor only
@@ -106,6 +107,14 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Cloud sync indicator */}
+        {isSyncing && (
+          <div className="flex items-center gap-1.5 text-xs text-sky-400 animate-pulse mr-2">
+            <Cloud size={14} />
+            <span>Syncing…</span>
+          </div>
+        )}
+
         {planImage && (
           <div className="flex items-center gap-4">
             <button 
@@ -181,7 +190,7 @@ const Dashboard: React.FC = () => {
           ))}
           {floors.length < 10 && (
             <button
-              onClick={addFloor}
+              onClick={() => addFloor()}
               className="px-3 py-1 rounded-md text-sm font-semibold border border-dashed border-slate-500 text-slate-400 hover:border-brand-amber hover:text-brand-amber transition-all"
             >
               + Add Floor

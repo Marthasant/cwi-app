@@ -1,34 +1,90 @@
-import React, { useRef } from 'react';
-import { X, Camera, MapPin, Trash2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Camera, MapPin, Trash2, Cloud, CheckCircle } from 'lucide-react';
 import { useInspection } from '../context/InspectionContext';
 import { CriticalityLevel } from '../types/index';
+import { uploadFindingPhoto } from '../lib/api';
 
 export const FindingSidebar: React.FC = () => {
-  const { findings, activeFindingId, setActiveFindingId, updateFinding, deleteFinding } = useInspection();
+  const {
+    findings,
+    activeFindingId,
+    setActiveFindingId,
+    updateFinding,
+    deleteFinding,
+    saveFinding,
+    buildingId,
+  } = useInspection();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [photoStatus, setPhotoStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
 
   const finding = findings.find(f => f.id === activeFindingId);
 
   if (!finding) return null;
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ---- Photo handling -------------------------------------------------------
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file');
       return;
     }
 
+    // Show local preview immediately
     const objectUrl = URL.createObjectURL(file);
     updateFinding(finding.id, { photoUrl: objectUrl });
+
+    // Push to cloud if connected
+    if (buildingId) {
+      setPhotoStatus('uploading');
+      const publicUrl = await uploadFindingPhoto(buildingId, finding.id, objectUrl);
+      if (publicUrl) {
+        updateFinding(finding.id, { photoUrl: publicUrl });
+        setPhotoStatus('done');
+      } else {
+        setPhotoStatus('idle');
+      }
+    }
   };
 
   const removePhoto = () => {
-    if (finding.photoUrl) {
+    if (finding.photoUrl && finding.photoUrl.startsWith('blob:')) {
       URL.revokeObjectURL(finding.photoUrl);
-      updateFinding(finding.id, { photoUrl: null });
     }
+    updateFinding(finding.id, { photoUrl: null });
+  };
+
+  // ---- Save -----------------------------------------------------------------
+  const handleSave = async () => {
+    setSaveStatus('saving');
+    await saveFinding(finding.id);
+    setSaveStatus('saved');
+    setTimeout(() => {
+      setSaveStatus('idle');
+      setActiveFindingId(null);
+    }, 800);
+  };
+
+  // ---- Delete ---------------------------------------------------------------
+  const handleDelete = async () => {
+    if (confirm('Delete this finding?')) {
+      await deleteFinding(finding.id);
+    }
+  };
+
+  const saveLabel = () => {
+    if (saveStatus === 'saving') return (
+      <span className="flex items-center justify-center gap-1.5">
+        <Cloud size={14} className="animate-pulse" /> Saving…
+      </span>
+    );
+    if (saveStatus === 'saved') return (
+      <span className="flex items-center justify-center gap-1.5">
+        <CheckCircle size={14} /> Saved!
+      </span>
+    );
+    return 'Save Changes';
   };
 
   return (
@@ -36,9 +92,9 @@ export const FindingSidebar: React.FC = () => {
       <div className="flex items-center justify-between p-5 border-b border-dark-border bg-[#15181e]">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
           <MapPin size={20} className="text-brand-amber" />
-          Finding Details
+          Finding #{finding.pinNumber ?? '?'} Details
         </h2>
-        <button 
+        <button
           onClick={() => setActiveFindingId(null)}
           className="p-1 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors"
         >
@@ -47,7 +103,7 @@ export const FindingSidebar: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin">
-        
+
         {/* Coordinates Read-only */}
         <div className="bg-dark-bg p-3 rounded-lg border border-slate-700 flex justify-between items-center text-xs text-slate-400 font-mono">
           <span>X: {finding.x.toFixed(2)}</span>
@@ -80,12 +136,20 @@ export const FindingSidebar: React.FC = () => {
 
         {/* Photo Upload */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-300">Visual Evidence</label>
+          <label className="block text-sm font-medium text-slate-300">
+            Visual Evidence
+            {photoStatus === 'uploading' && (
+              <span className="ml-2 text-xs text-sky-400 animate-pulse font-normal">Uploading…</span>
+            )}
+            {photoStatus === 'done' && (
+              <span className="ml-2 text-xs text-emerald-400 font-normal">✓ Synced</span>
+            )}
+          </label>
           {finding.photoUrl ? (
             <div className="relative group rounded-lg overflow-hidden border border-slate-600">
               <img src={finding.photoUrl} alt="Finding" className="w-full h-48 object-cover" />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button 
+                <button
                   onClick={removePhoto}
                   className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg"
                 >
@@ -94,18 +158,18 @@ export const FindingSidebar: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div 
+            <div
               onClick={() => fileInputRef.current?.click()}
               className="w-full h-32 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:text-brand-amber hover:border-brand-amber cursor-pointer transition-colors"
             >
               <Camera size={28} className="mb-2" />
               <span className="text-sm">Click to upload photo</span>
-              <input 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                ref={fileInputRef} 
-                onChange={handlePhotoUpload} 
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handlePhotoUpload}
               />
             </div>
           )}
@@ -157,24 +221,27 @@ export const FindingSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Footer / Delete */}
+      {/* Footer / Actions */}
       <div className="p-5 border-t border-dark-border bg-[#15181e] flex gap-3">
         <button
-          onClick={() => {
-            if (confirm('Delete this finding?')) {
-              deleteFinding(finding.id);
-            }
-          }}
+          onClick={handleDelete}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
         >
           <Trash2 size={18} />
           <span>Delete</span>
         </button>
         <button
-          onClick={() => setActiveFindingId(null)}
-          className="flex-1 py-2.5 bg-brand-amber hover:bg-amber-600 text-black font-semibold rounded-lg shadow-md transition-all"
+          onClick={handleSave}
+          disabled={saveStatus !== 'idle'}
+          className={`flex-1 py-2.5 font-semibold rounded-lg shadow-md transition-all ${
+            saveStatus === 'saved'
+              ? 'bg-emerald-600 text-white'
+              : saveStatus === 'saving'
+              ? 'bg-sky-700 text-white cursor-wait'
+              : 'bg-brand-amber hover:bg-amber-600 text-black'
+          }`}
         >
-          Save Changes
+          {saveLabel()}
         </button>
       </div>
     </div>

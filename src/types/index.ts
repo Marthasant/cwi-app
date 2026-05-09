@@ -10,8 +10,9 @@ export type CriticalityLevel = typeof CriticalityLevel[keyof typeof CriticalityL
 export interface Floor {
   id: string;
   name: string;
-  planImage: string | null;
+  planImage: string | null;       // local blob URL or cloud URL used for rendering
   imageDimensions: { width: number; height: number } | null;
+  floorPlanUrl?: string | null;   // Supabase Storage public URL (persisted to DB)
 }
 
 export interface Finding {
@@ -25,6 +26,7 @@ export interface Finding {
   recommendations: string;
   locationLabel?: string;
   affectedArea?: string;
+  pinNumber?: number;             // sequential pin label (1-based, per floor)
 }
 
 export interface ImageDimensions {
