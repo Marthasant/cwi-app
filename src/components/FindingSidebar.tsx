@@ -31,23 +31,35 @@ export const FindingSidebar: React.FC = () => {
       const fileExt = file.name.split('.').pop() ?? 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      const { error } = await supabase.storage
+      // Step 1 — Upload file to Storage
+      const { error: storageError } = await supabase.storage
         .from('finding_photos')
         .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
-      if (error) throw error;
+      if (storageError) throw storageError;
 
       const { data: publicUrlData } = supabase.storage
         .from('finding_photos')
         .getPublicUrl(fileName);
 
-      // 1. Write the confirmed cloud URL into local state
-      updateFinding(finding.id, { photoUrl: publicUrlData.publicUrl });
+      const publicUrl = publicUrlData.publicUrl;
 
-      // 2. Immediately persist to Supabase so the URL is never lost.
-      //    saveFinding reads from findingsRef.current (always latest) so the
-      //    photo_url we just set above will be included in the upsert payload.
-      await saveFinding(finding.id);
+      // Step 2 — Write photo_url DIRECTLY to the DB row, bypassing React state
+      // entirely. This is the only reliable way to guarantee the URL is persisted
+      // before any React re-render can interfere.
+      const { error: dbError } = await supabase
+        .from('findings')
+        .update({ photo_url: publicUrl })
+        .eq('id', finding.id);
+
+      if (dbError) {
+        console.error('[FindingSidebar] Failed to save photo URL to DB:', dbError);
+        alert(`Failed to save photo to database: ${dbError.message}`);
+        return;
+      }
+
+      // Step 3 — Only now update local React state so the UI shows the image
+      updateFinding(finding.id, { photoUrl: publicUrl });
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
