@@ -44,22 +44,10 @@ export const FindingSidebar: React.FC = () => {
 
       const publicUrl = publicUrlData.publicUrl;
 
-      // Step 2 — Write photo_url DIRECTLY to the DB row, bypassing React state
-      // entirely. This is the only reliable way to guarantee the URL is persisted
-      // before any React re-render can interfere.
-      const { error: dbError } = await supabase
-        .from('findings')
-        .update({ photo_url: publicUrl })
-        .eq('id', finding.id);
-
-      if (dbError) {
-        console.error('[FindingSidebar] Failed to save photo URL to DB:', dbError);
-        alert(`Failed to save photo to database: ${dbError.message}`);
-        return;
-      }
-
-      // Step 3 — Only now update local React state so the UI shows the image
+      // Update local React state so the UI shows the image immediately.
+      // The actual DB persistence will happen when the user clicks "Save Changes".
       updateFinding(finding.id, { photoUrl: publicUrl });
+
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
