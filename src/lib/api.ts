@@ -278,37 +278,29 @@ export async function deleteFindingFromDb(findingId: string): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Storage – photo upload (blob URL → Supabase Storage)
-// ---------------------------------------------------------------------------
-
 /**
- * Converts a local blob/object URL to a Blob and uploads it to the
- * `floor_plans` bucket under the `photos/` prefix.
+ * Uploads a finding photo File directly to the `finding_photos` bucket.
  * Returns the public URL or null on failure.
  */
-export async function uploadFindingPhoto(
-  buildingId: string,
-  findingId: string,
-  blobUrl: string,
-): Promise<string | null> {
+export async function uploadFindingPhoto(file: File): Promise<string | null> {
   try {
-    const response = await fetch(blobUrl);
-    const blob = await response.blob();
-    const ext = blob.type.split('/')[1] || 'jpg';
-    const path = `photos/${buildingId}/${findingId}.${ext}`;
+    const fileExt = file.name.split('.').pop() ?? 'jpg';
+    const fileName = `${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('floor_plans')
-      .upload(path, blob, { upsert: true, contentType: blob.type });
+    const { error } = await supabase.storage
+      .from('finding_photos')
+      .upload(fileName, file);
 
-    if (uploadError) throw uploadError;
+    if (error) {
+      console.error('[api] uploadFindingPhoto upload error:', error);
+      return null;
+    }
 
-    const { data: urlData } = supabase.storage
-      .from('floor_plans')
-      .getPublicUrl(path);
+    const { data } = supabase.storage
+      .from('finding_photos')
+      .getPublicUrl(fileName);
 
-    return urlData.publicUrl;
+    return data.publicUrl;
   } catch (err) {
     console.error('[api] uploadFindingPhoto failed:', err);
     return null;

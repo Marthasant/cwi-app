@@ -12,7 +12,6 @@ export const FindingSidebar: React.FC = () => {
     updateFinding,
     deleteFinding,
     saveFinding,
-    buildingId,
   } = useInspection();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -31,20 +30,20 @@ export const FindingSidebar: React.FC = () => {
       return;
     }
 
-    // Show local preview immediately
+    // Show local preview immediately for instant feedback
     const objectUrl = URL.createObjectURL(file);
     updateFinding(finding.id, { photoUrl: objectUrl });
 
-    // Push to cloud if connected
-    if (buildingId) {
-      setPhotoStatus('uploading');
-      const publicUrl = await uploadFindingPhoto(buildingId, finding.id, objectUrl);
-      if (publicUrl) {
-        updateFinding(finding.id, { photoUrl: publicUrl });
-        setPhotoStatus('done');
-      } else {
-        setPhotoStatus('idle');
-      }
+    // Upload the File directly to the finding_photos bucket
+    setPhotoStatus('uploading');
+    const publicUrl = await uploadFindingPhoto(file);
+    if (publicUrl) {
+      // Replace blob URL with the permanent cloud URL
+      updateFinding(finding.id, { photoUrl: publicUrl });
+      setPhotoStatus('done');
+    } else {
+      // Keep the local blob URL as fallback; user is still warned via console
+      setPhotoStatus('idle');
     }
   };
 
