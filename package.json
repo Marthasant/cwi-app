@@ -12,6 +12,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "@types/react-signature-canvas": "^1.0.7",
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",
