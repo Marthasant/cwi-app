@@ -24,11 +24,14 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
    * and update the floor row with the public URL (so other devices can load it).
    */
   const syncToCloud = async (blob: Blob, ext: string) => {
-    if (!buildingId || !currentFloorId) return;
+    // 1. ALWAYS show the map locally immediately!
+    const localUrl = URL.createObjectURL(blob);
+    updateFloor(currentFloorId, { planImage: localUrl });
 
-    // DEFENSIVE FIX: Prevent uploading to the local placeholder ID
-    if (currentFloorId === '1') {
-      alert("The app is currently syncing with the cloud database. Please wait 2 seconds and try uploading again.");
+    // 2. Check cloud connection
+    if (!buildingId || currentFloorId === '1') {
+      console.warn("Offline mode or default ID detected. Map saved locally only.");
+      setUploadStatus('idle');
       return;
     }
 
@@ -37,21 +40,18 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
     try {
       const fileName = `floor-${currentFloorId}-${Date.now()}.${ext}`;
       
-      // 1. Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('floor_plans')
         .upload(fileName, blob, { cacheControl: '3600', upsert: false });
 
       if (uploadError) throw uploadError;
 
-      // 2. Get Public URL
       const { data: publicUrlData } = supabase.storage
         .from('floor_plans')
         .getPublicUrl(fileName);
         
       const publicUrl = publicUrlData.publicUrl;
 
-      // 3. Direct Database Update (Bypass React State temporarily for safety)
       const { error: dbError } = await supabase
         .from('floors')
         .update({ floor_plan_url: publicUrl })
@@ -59,12 +59,12 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
 
       if (dbError) throw dbError;
 
-      // 4. Update local React state (Context) ONLY after DB success
+      // 3. Upgrade local URL to permanent Cloud URL
       updateFloor(currentFloorId, { planImage: publicUrl, floorPlanUrl: publicUrl });
       setUploadStatus('done');
     } catch (error: any) {
       console.error("Floor plan upload error:", error);
-      alert(`Upload failed: ${error.message}`);
+      alert(`Cloud sync failed: ${error.message}. The map will only work on this device.`);
       setUploadStatus('idle');
     } finally {
       setIsUploadingPlan(false);
