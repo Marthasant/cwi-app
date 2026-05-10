@@ -25,6 +25,13 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
    */
   const syncToCloud = async (blob: Blob, ext: string) => {
     if (!buildingId || !currentFloorId) return;
+
+    // DEFENSIVE FIX: Prevent uploading to the local placeholder ID
+    if (currentFloorId === '1') {
+      alert("The app is currently syncing with the cloud database. Please wait 2 seconds and try uploading again.");
+      return;
+    }
+
     setIsUploadingPlan(true);
     setUploadStatus('uploading');
     try {

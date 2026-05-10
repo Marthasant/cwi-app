@@ -12,6 +12,7 @@ import {
   upsertFinding,
   deleteFindingFromDb,
 } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -290,13 +291,26 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const clearInspection = () => {
+  const clearInspection = async () => {
     if (confirm('Are you sure you want to clear all inspection data? This cannot be undone.')) {
-      setFloors([DEFAULT_FLOOR]);
-      setCurrentFloorId('1');
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
       setFindings([]);
       setActiveFindingId(null);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
+
+      if (buildingId) {
+        // Wipe DB floors for this building (findings will cascade delete automatically)
+        await supabase.from('floors').delete().eq('building_id', buildingId);
+        
+        // Create a fresh floor with a valid Postgres UUID
+        const firstFloor = await insertFloor(buildingId, 'Floor 1', 0);
+        if (firstFloor) {
+          setFloors([{ ...firstFloor, imageDimensions: null }]);
+          setCurrentFloorId(firstFloor.id);
+        }
+      } else {
+        setFloors([DEFAULT_FLOOR]);
+        setCurrentFloorId('1');
+      }
     }
   };
 
