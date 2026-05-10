@@ -150,30 +150,38 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
           const mergedFloors = await Promise.all(cloudFloors.map(async (cf: any) => {
             const local = localFloors.find(lf => lf.id === cf.id);
-            // Fallback to handle both snake_case from raw DB and camelCase from api mapper
-            const planImageUrl = cf.floorPlanUrl || cf.floor_plan_url || local?.planImage || null;
+            // Handle both snake_case and camelCase
+            const planUrl = cf.floor_plan_url || cf.floorPlanUrl || local?.planImage || null;
             let dims = local?.imageDimensions || null;
 
-            // CRITICAL FIX: If we have a cloud image URL but NO dimensions (e.g., cross-device mobile load), measure it dynamically!
-            if (planImageUrl && !dims) {
+            // If dimensions are missing (common on new devices), measure the image!
+            if (planUrl && !dims) {
               dims = await new Promise<{width: number, height: number} | null>((resolve) => {
                 const img = new Image();
                 img.crossOrigin = 'Anonymous'; // Important for future PDF canvas rendering
                 img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
                 img.onerror = () => resolve(null);
-                img.src = planImageUrl;
+                img.src = planUrl;
               });
             }
 
             return {
               ...cf,
-              planImage: planImageUrl,
+              id: cf.id, // Ensure we use the UUID from cloud
+              planImage: planUrl,
               imageDimensions: dims,
             };
           }));
 
           setFloors(mergedFloors as Floor[]);
           setCurrentFloorId(mergedFloors[0].id);
+        } else if (bId) {
+          // If cloud is empty but we have a building, initialize the first floor in the cloud
+          const firstFloor = await insertFloor(bId, 'Floor 1', 0);
+          if (firstFloor) {
+            setFloors([{ ...firstFloor, imageDimensions: null }]);
+            setCurrentFloorId(firstFloor.id);
+          }
         }
 
         if (cloudFindings.length > 0) {
