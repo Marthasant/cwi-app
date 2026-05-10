@@ -144,19 +144,35 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         // If cloud has data, use it (cloud is authoritative)
         if (cloudFloors.length > 0) {
-          // Preserve imageDimensions from local cache (not stored in DB)
           const localFloors: Floor[] = (() => {
             try { return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}').floors || []; } catch { return []; }
           })();
-          const mergedFloors = cloudFloors.map(cf => {
+
+          const mergedFloors = await Promise.all(cloudFloors.map(async (cf: any) => {
             const local = localFloors.find(lf => lf.id === cf.id);
+            // Fallback to handle both snake_case from raw DB and camelCase from api mapper
+            const planImageUrl = cf.floorPlanUrl || cf.floor_plan_url || local?.planImage || null;
+            let dims = local?.imageDimensions || null;
+
+            // CRITICAL FIX: If we have a cloud image URL but NO dimensions (e.g., cross-device mobile load), measure it dynamically!
+            if (planImageUrl && !dims) {
+              dims = await new Promise<{width: number, height: number} | null>((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous'; // Important for future PDF canvas rendering
+                img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                img.onerror = () => resolve(null);
+                img.src = planImageUrl;
+              });
+            }
+
             return {
               ...cf,
-              planImage: cf.floorPlanUrl || local?.planImage || null,
-              imageDimensions: local?.imageDimensions || null,
+              planImage: planImageUrl,
+              imageDimensions: dims,
             };
-          });
-          setFloors(mergedFloors);
+          }));
+
+          setFloors(mergedFloors as Floor[]);
           setCurrentFloorId(mergedFloors[0].id);
         }
 
