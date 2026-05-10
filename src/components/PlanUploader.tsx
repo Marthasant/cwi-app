@@ -30,7 +30,7 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
 
     // 2. Check cloud connection
     if (!buildingId || currentFloorId === '1') {
-      console.warn("Offline mode or default ID detected. Map saved locally only.");
+      alert(`CLOUD SYNC ABORTED!\nBuilding ID: ${buildingId}\nFloor ID: ${currentFloorId}\nCheck Vercel Environment Variables!`);
       setUploadStatus('idle');
       return;
     }

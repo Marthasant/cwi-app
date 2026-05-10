@@ -73,32 +73,28 @@ function dbFindingToLocal(row: DbFinding, index: number): Finding {
  * Ensures a default building exists. Returns its ID.
  * Call once on app mount.
  */
-export async function ensureBuilding(
-  projectTitle: string,
-  inspectorName: string,
-): Promise<string | null> {
+export async function ensureBuilding(projectTitle: string, inspectorName: string): Promise<string | null> {
   try {
-    const { data, error } = await supabase
-      .from('buildings')
-      .select('id')
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-
+    const { data, error } = await supabase.from('buildings').select('id').limit(1).maybeSingle();
+    if (error) {
+      alert('DB Error (Select Building): ' + JSON.stringify(error));
+      throw error;
+    }
     if (data) return data.id;
 
-    // No building yet – create the default one
     const { data: inserted, error: insertError } = await supabase
       .from('buildings')
-      .insert({ name: projectTitle || 'Main Inspection Project', inspector: inspectorName })
+      .insert({ name: projectTitle || 'Main Inspection', inspector: inspectorName })
       .select('id')
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      alert('DB Error (Insert Building): ' + insertError.message);
+      throw insertError;
+    }
     return inserted.id;
-  } catch (err) {
-    console.error('[api] ensureBuilding failed:', err);
+  } catch (err: any) {
+    alert('[api] ensureBuilding CRITICAL failure: ' + err.message);
     return null;
   }
 }
