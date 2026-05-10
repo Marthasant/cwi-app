@@ -4,7 +4,7 @@ import { useInspection } from '../context/InspectionContext';
 import type { MapMode } from '../types/index';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { uploadFloorPlan } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -13,10 +13,11 @@ interface PlanUploaderProps {
 }
 
 export const PlanUploader: React.FC<PlanUploaderProps> = () => {
-  const { setPlanImage, setImageDimensions, buildingId, currentFloorId, updateFloor } = useInspection();
+  const { setImageDimensions, buildingId, currentFloorId, updateFloor } = useInspection();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
+  const [isUploadingPlan, setIsUploadingPlan] = useState(false);
 
   /**
    * After the image data-URL / blob-URL is ready, upload to Supabase Storage
@@ -24,16 +25,42 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
    */
   const syncToCloud = async (blob: Blob, ext: string) => {
     if (!buildingId || !currentFloorId) return;
+    setIsUploadingPlan(true);
     setUploadStatus('uploading');
     try {
-      const publicUrl = await uploadFloorPlan(buildingId, currentFloorId, blob, ext);
-      if (publicUrl) {
-        updateFloor(currentFloorId, { floorPlanUrl: publicUrl });
-      }
+      const fileName = `floor-${currentFloorId}-${Date.now()}.${ext}`;
+      
+      // 1. Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('floor_plans')
+        .upload(fileName, blob, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('floor_plans')
+        .getPublicUrl(fileName);
+        
+      const publicUrl = publicUrlData.publicUrl;
+
+      // 3. Direct Database Update (Bypass React State temporarily for safety)
+      const { error: dbError } = await supabase
+        .from('floors')
+        .update({ floor_plan_url: publicUrl })
+        .eq('id', currentFloorId);
+
+      if (dbError) throw dbError;
+
+      // 4. Update local React state (Context) ONLY after DB success
+      updateFloor(currentFloorId, { planImage: publicUrl, floorPlanUrl: publicUrl });
       setUploadStatus('done');
-    } catch (err) {
-      console.error('[PlanUploader] cloud sync failed:', err);
+    } catch (error: any) {
+      console.error("Floor plan upload error:", error);
+      alert(`Upload failed: ${error.message}`);
       setUploadStatus('idle');
+    } finally {
+      setIsUploadingPlan(false);
     }
   };
 
@@ -62,9 +89,8 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any).promise;
 
-        const dataUrl = canvas.toDataURL('image/png');
         setImageDimensions({ width: canvas.width, height: canvas.height });
-        setPlanImage(dataUrl);
+        // Bypassing premature setPlanImage to wait for DB success
 
         // Upload to cloud: convert data-URL → blob
         canvas.toBlob(async (blob) => {
@@ -90,7 +116,7 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
     const img = new Image();
     img.onload = async () => {
       setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
-      setPlanImage(objectUrl);
+      // Bypassing premature setPlanImage to wait for DB success
       const ext = file.type.split('/')[1] || 'png';
       await syncToCloud(file, ext);
     };
@@ -119,8 +145,8 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full w-full bg-dark-bg text-slate-300 p-8">
       <div
-        className={`w-full max-w-2xl p-12 border-2 border-dashed border-slate-600 rounded-2xl bg-dark-panel transition-colors flex flex-col items-center gap-4 shadow-xl ${isLoading ? 'opacity-50 cursor-wait' : 'hover:border-brand-amber cursor-pointer'}`}
-        onClick={() => !isLoading && fileInputRef.current?.click()}
+        className={`w-full max-w-2xl p-12 border-2 border-dashed border-slate-600 rounded-2xl bg-dark-panel transition-colors flex flex-col items-center gap-4 shadow-xl ${(isLoading || isUploadingPlan) ? 'opacity-50 cursor-wait' : 'hover:border-brand-amber cursor-pointer'}`}
+        onClick={() => !(isLoading || isUploadingPlan) && fileInputRef.current?.click()}
       >
         <div className="bg-slate-800 p-4 rounded-full text-brand-amber mb-2">
           {isLoading ? (
@@ -130,7 +156,7 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
           )}
         </div>
         <h2 className="text-2xl font-semibold text-white tracking-wide">
-          {isLoading ? 'Processing PDF...' : 'Upload Floor Plan'}
+          {isLoading ? 'Processing PDF...' : isUploadingPlan ? 'Uploading floor plan to cloud...' : 'Upload Floor Plan'}
         </h2>
         <p className="text-slate-400 text-center text-sm max-w-md leading-relaxed">
           {isLoading
@@ -144,9 +170,9 @@ export const PlanUploader: React.FC<PlanUploaderProps> = () => {
           className="hidden"
           ref={fileInputRef}
           onChange={handleFileChange}
-          disabled={isLoading}
+          disabled={isLoading || isUploadingPlan}
         />
-        {!isLoading && (
+        {!(isLoading || isUploadingPlan) && (
           <button className="mt-4 px-6 py-2.5 bg-brand-amber hover:bg-amber-600 text-black font-semibold rounded-lg shadow-md transition-all">
             Browse Files
           </button>
