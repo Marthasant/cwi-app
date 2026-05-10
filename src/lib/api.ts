@@ -42,9 +42,10 @@ function dbFloorToLocal(row: DbFloor): Floor {
   return {
     id: row.id,
     name: row.name,
-    planImage: row.floor_plan_url,
+    // CRITICAL FIX: Map the DB column to the local state property
+    planImage: row.floor_plan_url || null,
     imageDimensions: null, // loaded locally; not stored in DB
-    floorPlanUrl: row.floor_plan_url,
+    floorPlanUrl: row.floor_plan_url || null,
   };
 }
 
