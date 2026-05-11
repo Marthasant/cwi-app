@@ -212,11 +212,7 @@ export async function fetchFindings(buildingId: string): Promise<Finding[]> {
 }
 
 /** Insert a brand-new finding. The provided finding must already have a UUID id. */
-export async function insertFinding(
-  buildingId: string,
-  finding: Finding,
-  pinNumber: number,
-): Promise<void> {
+export async function insertFinding(buildingId: string, finding: Finding, pinNumber: number): Promise<void> {
   try {
     const { error } = await supabase.from('findings').insert({
       id: finding.id,
@@ -232,18 +228,17 @@ export async function insertFinding(
       weld_id: finding.locationLabel || null,
       severity: finding.affectedArea || null,
     });
-    if (error) throw error;
-  } catch (err) {
+    if (error) {
+      alert('DB Error (Insert Finding): ' + error.message);
+      throw error;
+    }
+  } catch (err: any) {
     console.error('[api] insertFinding failed:', err);
   }
 }
 
 /** Upsert all fields of a finding (called from "Save Changes"). */
-export async function upsertFinding(
-  buildingId: string,
-  finding: Finding,
-  pinNumber: number,
-): Promise<void> {
+export async function upsertFinding(buildingId: string, finding: Finding, pinNumber: number): Promise<void> {
   try {
     const { error } = await supabase.from('findings').upsert({
       id: finding.id,
@@ -259,8 +254,11 @@ export async function upsertFinding(
       weld_id: finding.locationLabel || null,
       severity: finding.affectedArea || null,
     });
-    if (error) throw error;
-  } catch (err) {
+    if (error) {
+      alert('DB Error (Save Finding): ' + error.message);
+      throw error;
+    }
+  } catch (err: any) {
     console.error('[api] upsertFinding failed:', err);
   }
 }
