@@ -1,18 +1,21 @@
 import React from 'react';
-import type { Finding, ImageDimensions } from '../types/index';
+import type { Finding, Floor, ImageDimensions } from '../types/index';
 import { getPinColor } from './MapViewer';
 
-const MasterMap: React.FC<{ findings: Finding[]; planImage: string; imageDimensions: ImageDimensions }> = ({ findings, planImage, imageDimensions }) => {
-  // We want to render the full image and place all pins on it.
-  // To ensure good resolution but fit within an offscreen container, we can just use the natural dimensions.
+const MasterMap: React.FC<{
+  findings: Finding[];
+  planImage: string;
+  imageDimensions: ImageDimensions;
+  floorId: string;
+}> = ({ findings, planImage, imageDimensions, floorId }) => {
   const containerWidth = imageDimensions.width;
   const containerHeight = imageDimensions.height;
-  
+
   return (
-    <div id="pdf-master-map" style={{ width: containerWidth, height: containerHeight, position: 'relative', backgroundColor: '#fff' }}>
-      <img 
-        src={planImage} 
-        alt="Master Map" 
+    <div id={`pdf-master-map-${floorId}`} style={{ width: containerWidth, height: containerHeight, position: 'relative', backgroundColor: '#fff' }}>
+      <img
+        src={planImage}
+        alt="Master Map"
         style={{
           position: 'absolute',
           left: 0,
@@ -20,12 +23,10 @@ const MasterMap: React.FC<{ findings: Finding[]; planImage: string; imageDimensi
           width: containerWidth,
           height: containerHeight,
           maxWidth: 'none',
-        }} 
+        }}
       />
       {findings.map((finding, index) => {
         const pinColor = getPinColor(finding.criticalityLevel || '');
-        // Pin X is distance from left (finding.x)
-        // Pin Y is distance from bottom, so top = containerHeight - finding.y
         const top = containerHeight - finding.y;
         const left = finding.x;
 
@@ -34,7 +35,7 @@ const MasterMap: React.FC<{ findings: Finding[]; planImage: string; imageDimensi
             position: 'absolute',
             top: top,
             left: left,
-            transform: 'translate(-50%, -100%)', // align bottom tip of pin to the coordinate
+            transform: 'translate(-50%, -100%)',
             filter: 'drop-shadow(0px 4px 4px rgba(0,0,0,0.5))'
           }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill={pinColor} stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -50,24 +51,41 @@ const MasterMap: React.FC<{ findings: Finding[]; planImage: string; imageDimensi
 };
 
 export const PdfTemplates: React.FC<{
-  findings: Finding[];
-  planImage: string | null;
-  imageDimensions: ImageDimensions | null;
-}> = ({ findings, planImage, imageDimensions }) => {
-  if (!planImage || !imageDimensions) return null;
-
+  floors: Floor[];       // Now takes all floors
+  allFindings: Finding[]; // Now takes all findings
+}> = ({ floors, allFindings }) => {
   return (
-    <div id="pdf-templates" style={{ position: 'absolute', left: '-9999px', top: 0, width: Math.max(imageDimensions.width, 1000) }}>
-      <MasterMap findings={findings} planImage={planImage} imageDimensions={imageDimensions} />
-      
-      {/* Render each photo for html2canvas to capture */}
-      {findings.map(finding => (
-        <div key={finding.id} id={`pdf-photo-${finding.id}`} style={{ padding: '20px', background: '#fff', color: '#000' }}>
-          {finding.photoUrl && (
-            <img src={finding.photoUrl} alt="Finding Photo" style={{ maxWidth: '600px', maxHeight: '400px', objectFit: 'contain' }} />
-          )}
-        </div>
-      ))}
+    <div id="pdf-templates" style={{ position: 'absolute', left: '-9999px', top: 0, width: '1200px' }}>
+      {floors.map((floor) => {
+        const floorFindings = allFindings.filter(f => f.floorId === floor.id);
+        if (!floor.planImage || !floor.imageDimensions) return null;
+
+        return (
+          <div key={floor.id} className="pdf-floor-section" style={{ background: '#fff', marginBottom: '50px' }}>
+            <h1 style={{ color: '#000', fontSize: '28px', padding: '20px' }}>{floor.name} - Overview</h1>
+
+            {/* Render the Master Map for THIS floor */}
+            <MasterMap
+              findings={floorFindings}
+              planImage={floor.planImage}
+              imageDimensions={floor.imageDimensions}
+              floorId={floor.id}
+            />
+
+            {/* Render photos for THIS floor */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px' }}>
+              {floorFindings.map(finding => (
+                <div key={finding.id} id={`pdf-photo-${finding.id}`} style={{ borderBottom: '1px solid #ccc', paddingBottom: '20px' }}>
+                  <h3 style={{ color: '#000' }}>Finding #{finding.pinNumber} - {finding.locationLabel}</h3>
+                  {finding.photoUrl && (
+                    <img src={finding.photoUrl} alt="Finding" style={{ maxWidth: '800px', borderRadius: '8px' }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

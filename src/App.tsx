@@ -11,7 +11,7 @@ import SignatureCanvas from 'react-signature-canvas';
 
 const Dashboard: React.FC = () => {
   const {
-    planImage, imageDimensions, findings,
+    planImage, findings,
     clearInspection, isAddingMode, setIsAddingMode, setActiveFindingId,
     projectTitle, setProjectTitle, inspectorName, setInspectorName,
     floors, currentFloorId, setCurrentFloorId, addFloor,
@@ -214,7 +214,7 @@ const Dashboard: React.FC = () => {
               />
             </div>
             <FindingSidebar />
-            <PdfTemplates findings={currentFindings} planImage={planImage} imageDimensions={imageDimensions} />
+            <PdfTemplates floors={floors} allFindings={findings} />
           </>
         )}
         </div>
