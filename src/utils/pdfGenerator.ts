@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
+
 import type { Finding, Floor } from '../types/index';
 import { CriticalityLevel } from '../types/index';
 import { getMarkerColor } from './colors';
@@ -245,14 +245,28 @@ export const generatePdfReport = async (
         doc.text(splitHeader, margin, currentY);
         currentY += (splitHeader.length * 0.25) + 0.1;
 
-        // Photo
+        // Photo (Direct jsPDF draw — bypasses html2canvas to avoid CORS canvas tainting)
         if (finding.photoUrl) {
           try {
-            const photoElement = document.getElementById(`pdf-photo-${finding.id}`);
-            const imgEl = photoElement?.querySelector('img') as HTMLImageElement | null;
-            if (imgEl) {
-              const canvas = await html2canvas(imgEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+              img.src = finding.photoUrl!;
+            });
+
+            // Draw onto a white-filled canvas → clean JPEG (no transparency)
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0);
               const imgData = canvas.toDataURL('image/jpeg', 0.9);
+
               const maxImgWidth = 4;
               let imgWidth = maxImgWidth;
               let imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -324,14 +338,32 @@ export const generatePdfReport = async (
   doc.setFontSize(12);
   const lineLength = 3;
 
-  // Signature with white background fill to prevent black PNG
+  // Signature — white-canvas re-encode to obliterate any transparency before jsPDF injection
   doc.text('Inspector Signature:', margin, currentY);
   if (signatureDataUrl) {
-    // White rect ensures no bleed if caller somehow passes PNG with transparency
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + 1.5, currentY - 0.45, 2.1, 0.95, 'F');
-    // Format is JPEG — caller extracts as JPEG so no transparency possible
-    doc.addImage(signatureDataUrl, 'JPEG', margin + 1.5, currentY - 0.4, 2, 0.8);
+    try {
+      const sigImg = new Image();
+      sigImg.crossOrigin = 'Anonymous';
+      await new Promise((resolve, reject) => {
+        sigImg.onload = resolve;
+        sigImg.onerror = reject;
+        sigImg.src = signatureDataUrl;
+      });
+
+      const sigCanvas = document.createElement('canvas');
+      sigCanvas.width = sigImg.width || 400;
+      sigCanvas.height = sigImg.height || 160;
+      const sigCtx = sigCanvas.getContext('2d');
+      if (sigCtx) {
+        sigCtx.fillStyle = '#ffffff';
+        sigCtx.fillRect(0, 0, sigCanvas.width, sigCanvas.height);
+        sigCtx.drawImage(sigImg, 0, 0);
+        const safeSigDataUrl = sigCanvas.toDataURL('image/jpeg', 1.0);
+        doc.addImage(safeSigDataUrl, 'JPEG', margin + 1.5, currentY - 0.4, 2, 0.8);
+      }
+    } catch (e) {
+      console.error("Failed to render signature", e);
+    }
   }
   doc.setDrawColor(0, 0, 0);
   doc.line(margin + 1.5, currentY + 0.1, margin + 1.5 + lineLength, currentY + 0.1);
