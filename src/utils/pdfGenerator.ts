@@ -249,9 +249,9 @@ export const generatePdfReport = async (
         if (finding.photoUrl) {
           try {
             const photoElement = document.getElementById(`pdf-photo-${finding.id}`);
-            if (photoElement?.firstElementChild) {
-              const imgEl = photoElement.firstElementChild as HTMLImageElement;
-              const canvas = await html2canvas(imgEl, { scale: 2, useCORS: true, allowTaint: true });
+            const imgEl = photoElement?.querySelector('img') as HTMLImageElement | null;
+            if (imgEl) {
+              const canvas = await html2canvas(imgEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
               const imgData = canvas.toDataURL('image/jpeg', 0.9);
               const maxImgWidth = 4;
               let imgWidth = maxImgWidth;

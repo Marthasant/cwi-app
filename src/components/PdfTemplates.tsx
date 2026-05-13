@@ -16,6 +16,7 @@ const MasterMap: React.FC<{
       <img
         src={planImage}
         alt="Master Map"
+        crossOrigin="anonymous"
         style={{
           position: 'absolute',
           left: 0,
@@ -23,6 +24,7 @@ const MasterMap: React.FC<{
           width: containerWidth,
           height: containerHeight,
           maxWidth: 'none',
+          backgroundColor: '#ffffff',
         }}
       />
       {findings.map((finding, index) => {
@@ -78,7 +80,12 @@ export const PdfTemplates: React.FC<{
                 <div key={finding.id} id={`pdf-photo-${finding.id}`} style={{ borderBottom: '1px solid #ccc', paddingBottom: '20px' }}>
                   <h3 style={{ color: '#000' }}>Finding #{finding.pinNumber} - {finding.locationLabel}</h3>
                   {finding.photoUrl && (
-                    <img src={finding.photoUrl} alt="Finding" style={{ maxWidth: '800px', borderRadius: '8px' }} />
+                    <img
+                      src={finding.photoUrl}
+                      alt="Finding"
+                      crossOrigin="anonymous"
+                      style={{ maxWidth: '800px', borderRadius: '8px', backgroundColor: '#ffffff', display: 'block' }}
+                    />
                   )}
                 </div>
               ))}
