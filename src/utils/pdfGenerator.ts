@@ -231,21 +231,32 @@ export const generatePdfReport = async (
         const finding = floorFindings[i];
         const findingNum = i + 1;
 
-        checkPageBreak(1.5);
+        // 3. Keep finding together: Check for page break BEFORE drawing the block.
+        checkPageBreak(3.5);
 
-        // Finding header (colored by criticality)
+        // 1. Title
         const colorHex = getMarkerColor(finding.criticalityLevel || '');
         const [r, g, b] = hexToRgb(colorHex);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(r, g, b);
-        const headerText = `Finding #${findingNum} — ${finding.locationLabel || 'Unnamed'}`;
-        const splitHeader = doc.splitTextToSize(headerText, contentWidth);
-        checkPageBreak(splitHeader.length * 0.25 + 0.1);
-        doc.text(splitHeader, margin, currentY);
-        currentY += (splitHeader.length * 0.25) + 0.1;
+        doc.text(`Finding #${findingNum}`, margin, currentY);
+        currentY += 0.25;
 
-        // Photo (Direct jsPDF draw — bypasses html2canvas to avoid CORS canvas tainting)
+        // 1. Criticality immediately below title
+        if (finding.criticalityLevel) {
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text(`Criticality: ${finding.criticalityLevel}`, margin, currentY);
+          currentY += 0.25;
+        }
+
+        const startBlockY = currentY;
+        let leftColBottom = startBlockY;
+        let rightColBottom = startBlockY;
+
+        // 2. Photo on the Left (Standard render)
         if (finding.photoUrl) {
           try {
             const img = new Image();
@@ -256,70 +267,65 @@ export const generatePdfReport = async (
               img.src = finding.photoUrl!;
             });
 
-            // Draw onto a white-filled canvas → clean JPEG (no transparency)
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             if (ctx) {
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0);
               const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
-              const maxImgWidth = 4;
+              const maxImgWidth = 3.5; // Left column width
+              const maxImgHeight = 2.5;
               let imgWidth = maxImgWidth;
               let imgHeight = (canvas.height * imgWidth) / canvas.width;
-              if (imgHeight > 4) {
-                imgHeight = 4;
+              if (imgHeight > maxImgHeight) {
+                imgHeight = maxImgHeight;
                 imgWidth = (canvas.width * imgHeight) / canvas.height;
               }
-              checkPageBreak(imgHeight + 0.3);
-              doc.addImage(imgData, 'JPEG', margin, currentY, imgWidth, imgHeight);
-              currentY += imgHeight + 0.2;
+              doc.addImage(imgData, 'JPEG', margin, startBlockY, imgWidth, imgHeight);
+              leftColBottom = startBlockY + imgHeight + 0.2;
             }
           } catch (e) {
             console.error("Failed to capture finding photo", e);
+            leftColBottom = startBlockY + 0.2;
           }
         }
 
-        // Details block with text wrapping
+        // 2. Text Details on the Right
+        const rightColX = margin + 3.7; // Start right column after photo
+        const rightColWidth = 3.3; // Remaining width (7.0 - 3.7)
+        let currentRightY = startBlockY;
+
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
 
-        const writeDetail = (label: string, text: string) => {
+        const writeDetailRight = (label: string, text: string | undefined | null) => {
           if (!text) return;
           doc.setFont("helvetica", "bold");
-          checkPageBreak(0.3);
-          doc.text(`${label}: `, margin, currentY);
+          doc.text(`${label}:`, rightColX, currentRightY);
+          currentRightY += 0.15;
           doc.setFont("helvetica", "normal");
-          const splitText = doc.splitTextToSize(text, contentWidth);
-          checkPageBreak(splitText.length * 0.18 + 0.1);
-          doc.text(splitText, margin, currentY + 0.15);
-          currentY += (splitText.length * 0.18) + 0.2;
+          const splitText = doc.splitTextToSize(text, rightColWidth);
+          doc.text(splitText, rightColX, currentRightY);
+          currentRightY += (splitText.length * 0.18) + 0.15;
         };
 
-        // Criticality with text wrap
-        if (finding.criticalityLevel) {
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(10);
-          const splitCrit = doc.splitTextToSize(`Criticality: ${finding.criticalityLevel}`, contentWidth);
-          checkPageBreak(splitCrit.length * 0.18 + 0.1);
-          doc.text(splitCrit, margin, currentY);
-          doc.setFont("helvetica", "normal");
-          currentY += (splitCrit.length * 0.18) + 0.15;
-        }
+        writeDetailRight("Location", finding.locationLabel);
+        writeDetailRight("Affected Area", finding.affectedArea);
+        writeDetailRight("Description", finding.description);
+        writeDetailRight("Recommendations", finding.recommendations);
 
-        writeDetail("Description", finding.description);
-        writeDetail("Recommendations", finding.recommendations);
-        if (finding.affectedArea) writeDetail("Affected Area", finding.affectedArea);
+        rightColBottom = currentRightY;
+
+        // Set Y to the bottom of the longest column
+        currentY = Math.max(leftColBottom, rightColBottom);
 
         // Separator
         currentY += 0.1;
         checkPageBreak(0.2);
         doc.setDrawColor(200, 200, 200);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
+        doc.line(margin, currentY, 8.5 - margin, currentY);
         currentY += 0.3;
       }
     }
@@ -336,9 +342,8 @@ export const generatePdfReport = async (
   currentY += 0.5;
 
   doc.setFontSize(12);
-  const lineLength = 3;
 
-  // Signature — white-canvas re-encode to obliterate any transparency before jsPDF injection
+  // Signature with bulletproof white background fill to prevent black PNGs
   doc.text('Inspector Signature:', margin, currentY);
   if (signatureDataUrl) {
     try {
@@ -351,14 +356,16 @@ export const generatePdfReport = async (
       });
 
       const sigCanvas = document.createElement('canvas');
-      sigCanvas.width = sigImg.width || 400;
-      sigCanvas.height = sigImg.height || 160;
+      sigCanvas.width = sigImg.width;
+      sigCanvas.height = sigImg.height;
       const sigCtx = sigCanvas.getContext('2d');
       if (sigCtx) {
+        // FORCE WHITE BACKGROUND ONLY FOR SIGNATURE
         sigCtx.fillStyle = '#ffffff';
         sigCtx.fillRect(0, 0, sigCanvas.width, sigCanvas.height);
         sigCtx.drawImage(sigImg, 0, 0);
         const safeSigDataUrl = sigCanvas.toDataURL('image/jpeg', 1.0);
+
         doc.addImage(safeSigDataUrl, 'JPEG', margin + 1.5, currentY - 0.4, 2, 0.8);
       }
     } catch (e) {
@@ -366,7 +373,7 @@ export const generatePdfReport = async (
     }
   }
   doc.setDrawColor(0, 0, 0);
-  doc.line(margin + 1.5, currentY + 0.1, margin + 1.5 + lineLength, currentY + 0.1);
+  doc.line(margin + 1.5, currentY + 0.1, margin + 1.5 + 3, currentY + 0.1);
   currentY += 0.5;
 
   doc.setFont("helvetica", "bold");
