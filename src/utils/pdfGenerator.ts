@@ -142,17 +142,20 @@ export const generatePdfReport = async (
 
   const indexBody = allFindings.map((f, i) => {
     const floorName = floors.find(fl => fl.id === f.floorId)?.name ?? 'Unknown Floor';
+    // Split by colon or dash to get just "Level 1", "Level 2", etc.
+    const shortCrit = f.criticalityLevel ? f.criticalityLevel.split(/[:\-]/)[0].trim() : 'Unassigned';
     return [
       (i + 1).toString(),
       floorName,
       f.locationLabel || 'Unnamed',
-      f.criticalityLevel ? f.criticalityLevel.split(' - ')[0] : 'Unassigned',
+      f.affectedArea || 'N/A', // New Column
+      shortCrit,
     ];
   });
 
   autoTable(doc, {
     startY: currentY,
-    head: [['#', 'Floor', 'Location Label', 'Criticality']],
+    head: [['#', 'Floor', 'Location Label', 'Affected Area', 'Criticality']],
     body: indexBody,
     theme: 'striped',
     headStyles: { fillColor: [60, 60, 60] },
@@ -243,13 +246,14 @@ export const generatePdfReport = async (
         doc.text(`Finding #${findingNum}`, margin, currentY);
         currentY += 0.25;
 
-        // 1. Criticality immediately below title
+        // 1. Criticality immediately below title (with text wrapping)
         if (finding.criticalityLevel) {
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
-          doc.text(`Criticality: ${finding.criticalityLevel}`, margin, currentY);
-          currentY += 0.25;
+          const splitCrit = doc.splitTextToSize(`Criticality: ${finding.criticalityLevel}`, contentWidth);
+          doc.text(splitCrit, margin, currentY);
+          currentY += (splitCrit.length * 0.18) + 0.15;
         }
 
         const startBlockY = currentY;
@@ -343,34 +347,11 @@ export const generatePdfReport = async (
 
   doc.setFontSize(12);
 
-  // Signature with bulletproof white background fill to prevent black PNGs
+  // Signature with PNG format to preserve transparency natively
   doc.text('Inspector Signature:', margin, currentY);
   if (signatureDataUrl) {
-    try {
-      const sigImg = new Image();
-      sigImg.crossOrigin = 'Anonymous';
-      await new Promise((resolve, reject) => {
-        sigImg.onload = resolve;
-        sigImg.onerror = reject;
-        sigImg.src = signatureDataUrl;
-      });
-
-      const sigCanvas = document.createElement('canvas');
-      sigCanvas.width = sigImg.width;
-      sigCanvas.height = sigImg.height;
-      const sigCtx = sigCanvas.getContext('2d');
-      if (sigCtx) {
-        // FORCE WHITE BACKGROUND ONLY FOR SIGNATURE
-        sigCtx.fillStyle = '#ffffff';
-        sigCtx.fillRect(0, 0, sigCanvas.width, sigCanvas.height);
-        sigCtx.drawImage(sigImg, 0, 0);
-        const safeSigDataUrl = sigCanvas.toDataURL('image/jpeg', 1.0);
-
-        doc.addImage(safeSigDataUrl, 'JPEG', margin + 1.5, currentY - 0.4, 2, 0.8);
-      }
-    } catch (e) {
-      console.error("Failed to render signature", e);
-    }
+    // Use 'PNG' instead of 'JPEG' to avoid black background rendering on transparent pixels
+    doc.addImage(signatureDataUrl, 'PNG', margin + 1.5, currentY - 0.4, 2, 0.8);
   }
   doc.setDrawColor(0, 0, 0);
   doc.line(margin + 1.5, currentY + 0.1, margin + 1.5 + 3, currentY + 0.1);
@@ -388,39 +369,7 @@ export const generatePdfReport = async (
   doc.text(certNumber || '', margin + 1.6, currentY);
   currentY += 0.7;
 
-  // ─── Final Summary Table ──────────────────────────────────────────────────
-  checkPageBreak(2.5);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
-  doc.text('Final Summary by Criticality', margin, currentY);
-  currentY += 0.15;
 
-  const finalCounts = {
-    [CriticalityLevel.LEVEL_1]: 0,
-    [CriticalityLevel.LEVEL_2]: 0,
-    [CriticalityLevel.LEVEL_3]: 0,
-    [CriticalityLevel.LEVEL_4]: 0,
-  };
-  allFindings.forEach(f => {
-    if (f.criticalityLevel && Object.values(CriticalityLevel).includes(f.criticalityLevel as CriticalityLevel)) {
-      finalCounts[f.criticalityLevel as CriticalityLevel]++;
-    }
-  });
-  const finalBody = Object.values(CriticalityLevel).map(level => [
-    level.split(' - ')[0],
-    finalCounts[level] || 0,
-  ]);
-  finalBody.push(['TOTAL', allFindings.length]);
-
-  autoTable(doc, {
-    startY: currentY,
-    head: [['Criticality Level', 'Count']],
-    body: finalBody,
-    theme: 'grid',
-    headStyles: { fillColor: [40, 40, 40] },
-    margin: { left: margin, right: margin },
-  });
 
   const sanitizedTitle = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'inspection_report';
   doc.save(`${sanitizedTitle}.pdf`);
