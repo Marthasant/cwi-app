@@ -191,6 +191,27 @@ export async function uploadFloorPlan(
   }
 }
 
+/** Delete a floor and all its associated data by floor ID. */
+export async function deleteFloorFromDb(floorId: string): Promise<void> {
+  try {
+    const { error } = await supabase.from('floors').delete().eq('id', floorId);
+    if (error) throw error;
+  } catch (err) {
+    console.error('[api] deleteFloorFromDb failed:', err);
+    alert('Failed to delete floor from cloud: ' + err);
+  }
+}
+
+/** Update floor fields (e.g. name) by floor ID. */
+export async function updateFloorInDb(floorId: string, updates: { name?: string }): Promise<void> {
+  try {
+    const { error } = await supabase.from('floors').update(updates).eq('id', floorId);
+    if (error) throw error;
+  } catch (err) {
+    console.error('[api] updateFloorInDb failed:', err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Finding helpers
 // ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ import {
   insertFinding,
   upsertFinding,
   deleteFindingFromDb,
+  deleteFloorFromDb,
+  updateFloorInDb,
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
@@ -32,7 +34,8 @@ interface InspectionContextType {
   currentFloorId: string;
   setCurrentFloorId: (id: string) => void;
   addFloor: () => Promise<void>;
-  updateFloor: (id: string, updates: Partial<Floor>) => void;
+  updateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
+  deleteFloor: (id: string) => Promise<void>;
 
   // Legacy single-floor helpers (derived from currentFloor)
   planImage: string | null;
@@ -238,8 +241,31 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentFloorId(newId);
   };
 
-  const updateFloor = (id: string, updates: Partial<Floor>) => {
+  const updateFloor = async (id: string, updates: Partial<Floor>) => {
     setFloors(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+    if (buildingId && updates.name) {
+      await updateFloorInDb(id, { name: updates.name });
+    }
+  };
+
+  const deleteFloor = async (id: string) => {
+    if (floors.length <= 1) {
+      alert('Operation aborted. You must maintain at least one floor in the project.');
+      return;
+    }
+    if (!confirm('CRITICAL WARNING:\nAre you sure you want to delete this entire floor? All blueprints and findings pinned to this level will be PERMANENTLY deleted from the cloud.')) return;
+
+    const remainingFloors = floors.filter(f => f.id !== id);
+    setFloors(remainingFloors);
+    setFindings(prev => prev.filter(f => f.floorId !== id));
+
+    if (currentFloorId === id) {
+      setCurrentFloorId(remainingFloors[0].id);
+    }
+
+    if (buildingId) {
+      await deleteFloorFromDb(id);
+    }
   };
 
   // ----- Legacy single-floor shims -----------------------------------------
@@ -322,7 +348,7 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         projectTitle, setProjectTitle,
         inspectorName, setInspectorName,
         buildingId, isSyncing,
-        floors, currentFloorId, setCurrentFloorId, addFloor, updateFloor,
+        floors, currentFloorId, setCurrentFloorId, addFloor, updateFloor, deleteFloor,
         planImage: currentFloor?.planImage ?? null,
         setPlanImage,
         imageDimensions: currentFloor?.imageDimensions ?? null,

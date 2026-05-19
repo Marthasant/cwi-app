@@ -6,7 +6,7 @@ import { FindingSidebar } from './components/FindingSidebar';
 import { PdfTemplates } from './components/PdfTemplates';
 import { generatePdfReport } from './utils/pdfGenerator';
 import { exportToExcel } from './utils/excelGenerator';
-import { AlertTriangle, FileText, Trash2, MapPin, FileSpreadsheet, X, Cloud } from 'lucide-react';
+import { AlertTriangle, FileText, Trash2, MapPin, FileSpreadsheet, X, Cloud, Pencil } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 
 const Dashboard: React.FC = () => {
@@ -14,9 +14,12 @@ const Dashboard: React.FC = () => {
     planImage, findings,
     clearInspection, isAddingMode, setIsAddingMode, setActiveFindingId,
     projectTitle, setProjectTitle, inspectorName, setInspectorName,
-    floors, currentFloorId, setCurrentFloorId, addFloor,
+    floors, currentFloorId, setCurrentFloorId, addFloor, updateFloor, deleteFloor,
     isSyncing,
   } = useInspection();
+
+  const [renamingFloorId, setRenamingFloorId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // Findings filtered to the active floor only
   const currentFindings = findings.filter(f => f.floorId === currentFloorId);
@@ -176,17 +179,82 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center gap-2 px-4 py-2 bg-dark-panel border-b border-dark-border z-10 flex-shrink-0">
           <span className="text-xs text-slate-400 font-semibold uppercase tracking-widest mr-1">Floor:</span>
           {floors.map(floor => (
-            <button
+            <div
               key={floor.id}
-              onClick={() => { setCurrentFloorId(floor.id); setActiveFindingId(null); }}
-              className={`px-3 py-1 rounded-md text-sm font-semibold transition-all border ${
+              className={`group flex items-center gap-1 px-3 py-1 rounded-md text-sm font-semibold transition-all border ${
                 floor.id === currentFloorId
                   ? 'bg-brand-amber text-black border-brand-amber'
                   : 'bg-dark-bg text-slate-300 border-dark-border hover:border-brand-amber hover:text-brand-amber'
               }`}
             >
-              {floor.name}
-            </button>
+              {renamingFloorId === floor.id ? (
+                <input
+                  id={`floor-rename-${floor.id}`}
+                  autoFocus
+                  className="bg-transparent outline-none border-b border-black/40 w-24 text-sm font-semibold"
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (renameValue.trim()) updateFloor(floor.id, { name: renameValue.trim() });
+                      setRenamingFloorId(null);
+                    } else if (e.key === 'Escape') {
+                      setRenamingFloorId(null);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (renameValue.trim()) updateFloor(floor.id, { name: renameValue.trim() });
+                    setRenamingFloorId(null);
+                  }}
+                />
+              ) : (
+                <button
+                  id={`floor-tab-${floor.id}`}
+                  onClick={() => { setCurrentFloorId(floor.id); setActiveFindingId(null); }}
+                  onDoubleClick={e => {
+                    e.stopPropagation();
+                    setRenamingFloorId(floor.id);
+                    setRenameValue(floor.name);
+                    setCurrentFloorId(floor.id);
+                  }}
+                  title="Click to select · Double-click to rename"
+                  className="bg-transparent border-none p-0 cursor-pointer font-semibold"
+                >
+                  {floor.name}
+                </button>
+              )}
+              {/* Rename icon — visible on hover when not renaming */}
+              {renamingFloorId !== floor.id && (
+                <button
+                  id={`floor-rename-btn-${floor.id}`}
+                  title="Rename floor"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setRenamingFloorId(floor.id);
+                    setRenameValue(floor.name);
+                    setCurrentFloorId(floor.id);
+                  }}
+                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/20 ${
+                    floor.id === currentFloorId ? 'text-black/60 hover:text-black' : 'text-slate-500 hover:text-brand-amber'
+                  }`}
+                >
+                  <Pencil size={11} />
+                </button>
+              )}
+              {/* Delete icon — only shown when more than one floor exists */}
+              {floors.length > 1 && (
+                <button
+                  id={`floor-delete-btn-${floor.id}`}
+                  title="Delete floor"
+                  onClick={e => { e.stopPropagation(); deleteFloor(floor.id); }}
+                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/20 ${
+                    floor.id === currentFloorId ? 'text-black/60 hover:text-red-700' : 'text-slate-500 hover:text-red-400'
+                  }`}
+                >
+                  <Trash2 size={11} />
+                </button>
+              )}
+            </div>
           ))}
           {floors.length < 10 && (
             <button
