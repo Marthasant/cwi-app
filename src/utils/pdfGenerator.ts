@@ -17,16 +17,18 @@ const hexToRgb = (hex: string): [number, number, number] => {
 // Draws pins for a floor onto an existing canvas context
 const drawPinsOnCanvas = (
   ctx: CanvasRenderingContext2D,
-  canvasHeight: number,
-  floorFindings: Finding[]
+  originalCanvasHeight: number,
+  floorFindings: Finding[],
+  scale: number = 1
 ) => {
   floorFindings.forEach((finding, i) => {
     const pinColorHex = getMarkerColor(finding.criticalityLevel || '');
-    const x = finding.x;
-    const y = canvasHeight - finding.y;
+    // Scale the coordinates
+    const x = finding.x * scale;
+    const y = (originalCanvasHeight - finding.y) * scale;
 
     ctx.beginPath();
-    ctx.arc(x, y, 16, 0, 2 * Math.PI);
+    ctx.arc(x, y, 16, 0, 2 * Math.PI); // Keep pin radius fixed for readability
     ctx.fillStyle = pinColorHex;
     ctx.fill();
     ctx.lineWidth = 2;
@@ -184,29 +186,44 @@ export const generatePdfReport = async (
 
       try {
         const canvas = document.createElement('canvas');
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = floor.planImage!;
+        });
+
+        // --- DOWNSCALE LOGIC FOR MAP ---
+        const MAX_MAP_DIM = 2500;
+        let mapScale = 1;
+        const origW = floor.imageDimensions!.width;
+        const origH = floor.imageDimensions!.height;
+
+        if (origW > MAX_MAP_DIM || origH > MAX_MAP_DIM) {
+          mapScale = Math.min(MAX_MAP_DIM / origW, MAX_MAP_DIM / origH);
+        }
+
+        canvas.width = origW * mapScale;
+        canvas.height = origH * mapScale;
+
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          const img = new Image();
-          img.crossOrigin = 'Anonymous';
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = floor.planImage!;
-          });
-
-          canvas.width = floor.imageDimensions!.width;
-          canvas.height = floor.imageDimensions!.height;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          drawPinsOnCanvas(ctx, canvas.height, floorFindings);
+          // Pass the original height and the scale factor
+          drawPinsOnCanvas(ctx, origH, floorFindings, mapScale);
 
-          const imgData = canvas.toDataURL('image/jpeg', 0.9);
+          // Reduce JPEG quality slightly to save memory
+          const imgData = canvas.toDataURL('image/jpeg', 0.8);
           const availH = lsPageHeight - currentY - margin;
           let imgW = lsContentWidth;
-          let imgH = (canvas.height * imgW) / canvas.width;
+          let imgH = (origH * imgW) / origW;
           if (imgH > availH) {
             imgH = availH;
-            imgW = (canvas.width * imgH) / canvas.height;
+            imgW = (origW * imgH) / origH;
           }
           const offsetX = margin + (lsContentWidth - imgW) / 2;
           doc.addImage(imgData, 'JPEG', offsetX, currentY, imgW, imgH);
@@ -271,17 +288,29 @@ export const generatePdfReport = async (
               img.src = finding.photoUrl!;
             });
 
+            // --- DOWNSCALE LOGIC FOR PHOTOS ---
             const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
+            const MAX_PHOTO_DIM = 1200;
+            let pScale = 1;
+            if (img.width > MAX_PHOTO_DIM || img.height > MAX_PHOTO_DIM) {
+              pScale = Math.min(MAX_PHOTO_DIM / img.width, MAX_PHOTO_DIM / img.height);
+            }
+            canvas.width = img.width * pScale;
+            canvas.height = img.height * pScale;
+
             const ctx = canvas.getContext('2d');
             if (ctx) {
-              ctx.drawImage(img, 0, 0);
-              const imgData = canvas.toDataURL('image/jpeg', 0.9);
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-              const maxImgWidth = 3.5; // Left column width
+              // Reduce JPEG quality slightly
+              const imgData = canvas.toDataURL('image/jpeg', 0.8);
+
+              const maxImgWidth = 3.5;
               const maxImgHeight = 2.5;
               let imgWidth = maxImgWidth;
+              // Use canvas.width/height for aspect ratio math
               let imgHeight = (canvas.height * imgWidth) / canvas.width;
               if (imgHeight > maxImgHeight) {
                 imgHeight = maxImgHeight;
