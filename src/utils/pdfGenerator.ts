@@ -52,6 +52,24 @@ export const generatePdfReport = async (
   inspectionDate: string = new Date().toLocaleDateString(),
   certNumber: string = ''
 ) => {
+  // Helper to rank criticality (Level 1 is most critical)
+  const getCritRank = (crit: string | undefined | null) => {
+    if (!crit) return 99;
+    if (crit.includes('Level 1')) return 1;
+    if (crit.includes('Level 2')) return 2;
+    if (crit.includes('Level 3')) return 3;
+    if (crit.includes('Level 4')) return 4;
+    return 99;
+  };
+
+  // Deep sort all findings: Floor Order -> Criticality
+  const sortedFindings = [...allFindings].sort((a, b) => {
+    const floorIndexA = floors.findIndex(fl => fl.id === a.floorId);
+    const floorIndexB = floors.findIndex(fl => fl.id === b.floorId);
+    if (floorIndexA !== floorIndexB) return floorIndexA - floorIndexB;
+    return getCritRank(a.criticalityLevel) - getCritRank(b.criticalityLevel);
+  });
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'in',
@@ -142,22 +160,30 @@ export const generatePdfReport = async (
   doc.text("General Index (All Floors)", margin, currentY);
   currentY += 0.15;
 
-  const indexBody = allFindings.map((f, i) => {
-    const floorName = floors.find(fl => fl.id === f.floorId)?.name ?? 'Unknown Floor';
-    // Split by colon or dash to get just "Level 1", "Level 2", etc.
-    const shortCrit = f.criticalityLevel ? f.criticalityLevel.split(/[:\-]/)[0].trim() : 'Unassigned';
-    return [
-      (i + 1).toString(),
-      floorName,
-      f.locationLabel || 'Unnamed',
-      f.affectedArea || 'N/A', // New Column
-      shortCrit,
-    ];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const indexBody: any[] = [];
+
+  // Build index per floor to guarantee the Finding # perfectly matches the Map Pins
+  floors.forEach(floor => {
+    const floorFindings = sortedFindings.filter(f => f.floorId === floor.id);
+    floorFindings.forEach((f, i) => {
+      // Remove the word "Floor" (case insensitive), leaving just the number/label
+      const shortFloor = floor.name.replace(/floor\s*/i, '').trim() || '1';
+      const shortCrit = f.criticalityLevel ? f.criticalityLevel.split(/[:\-]/)[0].trim() : 'Unassigned';
+
+      indexBody.push([
+        shortFloor,              // Floor number only
+        shortCrit,               // Criticality
+        (i + 1).toString(),      // Finding # (Matches Map & Detail!)
+        f.locationLabel || 'Unnamed',
+        f.affectedArea || 'N/A',
+      ]);
+    });
   });
 
   autoTable(doc, {
     startY: currentY,
-    head: [['#', 'Floor', 'Location Label', 'Affected Area', 'Criticality']],
+    head: [['Floor', 'Criticality', 'Finding #', 'Location Label', 'Affected Area']],
     body: indexBody,
     theme: 'striped',
     headStyles: { fillColor: [60, 60, 60] },
@@ -168,7 +194,8 @@ export const generatePdfReport = async (
   // ─── PER-FLOOR LOOP ──────────────────────────────────────────────────────
 
   for (const floor of floors) {
-    const floorFindings = allFindings.filter(f => f.floorId === floor.id);
+    // CRITICAL: Use sortedFindings here so Map Pins and Photo Details perfectly sync with the Index
+    const floorFindings = sortedFindings.filter(f => f.floorId === floor.id);
 
     // ── Landscape Map Page ──────────────────────────────────────────────────
     if (floor.planImage && floor.imageDimensions) {
