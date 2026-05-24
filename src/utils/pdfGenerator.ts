@@ -277,7 +277,7 @@ export const generatePdfReport = async (
         let leftColBottom = startBlockY;
         let rightColBottom = startBlockY;
 
-        // 2. Photo on the Left (Standard render)
+        // 2. Photo on the Left (Aggressively compressed for memory safety)
         if (finding.photoUrl) {
           try {
             const img = new Image();
@@ -288,9 +288,10 @@ export const generatePdfReport = async (
               img.src = finding.photoUrl!;
             });
 
-            // --- DOWNSCALE LOGIC FOR PHOTOS ---
+            // --- ULTRA-DOWNSCALE LOGIC FOR HUGE REPORTS ---
             const canvas = document.createElement('canvas');
-            const MAX_PHOTO_DIM = 1200;
+            // Restrict to max 800px to save massive amounts of RAM during 40+ photo loops
+            const MAX_PHOTO_DIM = 800;
             let pScale = 1;
             if (img.width > MAX_PHOTO_DIM || img.height > MAX_PHOTO_DIM) {
               pScale = Math.min(MAX_PHOTO_DIM / img.width, MAX_PHOTO_DIM / img.height);
@@ -298,26 +299,31 @@ export const generatePdfReport = async (
             canvas.width = img.width * pScale;
             canvas.height = img.height * pScale;
 
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (ctx) {
               ctx.fillStyle = '#ffffff';
               ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-              // Reduce JPEG quality slightly
-              const imgData = canvas.toDataURL('image/jpeg', 0.8);
+              // Aggressive compression: 0.6 is visually fine for PDF reports but saves ~50% string length
+              const imgData = canvas.toDataURL('image/jpeg', 0.6);
 
               const maxImgWidth = 3.5;
               const maxImgHeight = 2.5;
               let imgWidth = maxImgWidth;
-              // Use canvas.width/height for aspect ratio math
               let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
               if (imgHeight > maxImgHeight) {
                 imgHeight = maxImgHeight;
                 imgWidth = (canvas.width * imgHeight) / canvas.height;
               }
+
               doc.addImage(imgData, 'JPEG', margin, startBlockY, imgWidth, imgHeight);
               leftColBottom = startBlockY + imgHeight + 0.2;
+
+              // FORCE GARBAGE COLLECTION HINTS
+              canvas.width = 0;
+              canvas.height = 0;
             }
           } catch (e) {
             console.error("Failed to capture finding photo", e);
