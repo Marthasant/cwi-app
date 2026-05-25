@@ -1,8 +1,10 @@
 export const CriticalityLevel = {
-  LEVEL_1: 'Level 1: Super Critical (Structural Collapse Risk) - Moment Connections, Column Splices, Base Plates, Precast Embed Plate Failures (AWS D1.4)',
-  LEVEL_2: 'Level 2: Very Critical (Floor Stability & Hurricanes) - Metal Deck Damage, Concrete Spalling & Exposed Rebar (ACI 318 / AWS D1.4), Framing Integrity (AWS D1.3)',
-  LEVEL_3: 'Level 3: Human Life & High Liability - Vehicular Crash Barriers/Cables, Pedestrian Guardrails, Stair Stringers & Landings',
-  LEVEL_4: 'Level 4: Operational Critical - Major Pipe Supports, Corrosion under intumescent paint'
+  LEVEL_1: 'Risk Level 1: CRITICAL (Immediate Structural Hazard)',
+  LEVEL_2: 'Risk Level 2: HIGH (Significant Section Loss)',
+  LEVEL_3: 'Risk Level 3: MODERATE (Surface Deterioration)',
+  LEVEL_4: 'Risk Level 4: LOW (Cosmetic / Early-Stage)',
+  LEVEL_5: 'Risk Level 5: LIFE SAFETY (Sprinkler Pipe Hazard)',
+  LEVEL_6: 'Risk Level 6: EXTREME DANGER (Flammable Gas Hazard)',
 } as const;
 
 export type CriticalityLevel = typeof CriticalityLevel[keyof typeof CriticalityLevel];

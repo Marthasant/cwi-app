@@ -59,6 +59,8 @@ export const generatePdfReport = async (
     if (crit.includes('Level 2')) return 2;
     if (crit.includes('Level 3')) return 3;
     if (crit.includes('Level 4')) return 4;
+    if (crit.includes('Level 5')) return 5;
+    if (crit.includes('Level 6')) return 6;
     return 99;
   };
 
@@ -125,11 +127,13 @@ export const generatePdfReport = async (
   doc.text("Global Summary by Criticality", margin, currentY);
   currentY += 0.15;
 
-  const globalCounts = {
+  const globalCounts: Record<string, number> = {
     [CriticalityLevel.LEVEL_1]: 0,
     [CriticalityLevel.LEVEL_2]: 0,
     [CriticalityLevel.LEVEL_3]: 0,
     [CriticalityLevel.LEVEL_4]: 0,
+    [CriticalityLevel.LEVEL_5]: 0,
+    [CriticalityLevel.LEVEL_6]: 0,
   };
   allFindings.forEach(f => {
     if (f.criticalityLevel && Object.values(CriticalityLevel).includes(f.criticalityLevel as CriticalityLevel)) {
@@ -190,6 +194,61 @@ export const generatePdfReport = async (
     margin: { left: margin, right: margin },
   });
 
+
+  // ─── METHODOLOGY & RISK MATRIX PAGE ─────────────────────────────────────
+  doc.addPage('letter', 'portrait');
+  currentY = margin;
+
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text("6.0 STRUCTURAL RISK & PRIORITIZATION MATRIX", margin, currentY);
+  currentY += 0.3;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  const introText = "Based on the field findings, base metal degradation, and the repair parameters outlined in AWS D1.1 (Clause 8), AWS D1.3, and AWS D1.4, the following 6-tier risk classification system has been established to guide the facility's maintenance schedule. MEP hazards (Gas/Sprinklers) are evaluated under NFPA guidelines.";
+  const splitIntro = doc.splitTextToSize(introText, contentWidth);
+  doc.text(splitIntro, margin, currentY);
+  currentY += (splitIntro.length * 0.18) + 0.2;
+
+  const riskMatrix = [
+    {
+      title: "Risk Level 1: CRITICAL (Immediate Structural Hazard)",
+      body: "Condition: Complete perforation of the metal deck across wide areas, or >25% section loss on primary/secondary structural framing.\nCode Implication: AWS D1.3: Sheet steel too degraded for repair. AWS D1.4: Spalled concrete/exposed rebar. AWS D1.1 (Clause 8.3): Inadequate base metal.\nRequired Action: Immediate. Erect temporary shoring beneath the affected area immediately. Isolate the zone."
+    },
+    {
+      title: "Risk Level 2: HIGH (Significant Section Loss & Capacity Reduction)",
+      body: "Condition: Localized perforations in metal deck or 10% to 25% section loss on structural connections. Active water intrusion.\nCode Implication: AWS D1.1 / D1.3: Retrofit plates or angles must be installed. Requires strict thermal control to prevent burn-through.\nRequired Action: 30 to 90 Days. Stop water intrusion immediately. Mechanical cleaning to bare metal is mandatory prior to welding sistering angles."
+    },
+    {
+      title: "Risk Level 3: MODERATE (Surface Deterioration & Impaired Weldability)",
+      body: "Condition: Heavy surface rust, flaking, and complete loss of the galvanized coating. Section loss is minimal (<10%).\nCode Implication: AWS D1.1 (Clause 8.5): Base metal is structurally sound but contaminated surface prohibits safe welding without aggressive prep.\nRequired Action: 6 to 12 Months. Wire brushing or abrasive blasting to remove rust and scale, followed by high-zinc-content cold galvanizing compound."
+    },
+    {
+      title: "Risk Level 4: LOW (Cosmetic / Early-Stage Oxidation)",
+      body: "Condition: Superficial surface oxidation, staining, or localized failure of the paint/galvanized coating. No measurable section loss.\nCode Implication: Base metal remains fully compliant with original design specifications. No structural intervention required.\nRequired Action: Monitor. Include in annual visual inspection cycle. Spot cleaning and touch-up painting recommended."
+    },
+    {
+      title: "Risk Level 5: LIFE SAFETY (Sprinkler Pipe Hazard)",
+      body: "Condition: Severe corrosion, pitting, or loss of structural support on fire sprinkler piping.\nCode Implication: NFPA 25: Impaired fire protection system. Welding near pressurized water lines requires strict safety protocols.\nRequired Action: Immediate. Notify building management. Isolate/drain affected zone to replace compromised hangers or pipe sections."
+    },
+    {
+      title: "Risk Level 6: EXTREME DANGER (Flammable Gas Hazard)",
+      body: "Condition: Degradation, severe corrosion, or failing supports on natural gas supply lines within the structure.\nCode Implication: NFPA 54 / ASME B31.8: Imminent explosion/fire hazard. Absolutely NO HOT WORK (welding/grinding) permitted in vicinity.\nRequired Action: EMERGENCY. Evacuate immediate area. Shut off main valves. Contact utility provider and certified gas fitters immediately."
+    }
+  ];
+
+  riskMatrix.forEach(risk => {
+    checkPageBreak(1.5);
+    doc.setFont("helvetica", "bold");
+    doc.text(risk.title, margin, currentY);
+    currentY += 0.2;
+    doc.setFont("helvetica", "normal");
+    const splitBody = doc.splitTextToSize(risk.body, contentWidth);
+    doc.text(splitBody, margin, currentY);
+    currentY += (splitBody.length * 0.18) + 0.2;
+  });
 
   // ─── PER-FLOOR LOOP ──────────────────────────────────────────────────────
 
@@ -290,14 +349,14 @@ export const generatePdfReport = async (
         doc.text(`Finding #${findingNum}`, margin, currentY);
         currentY += 0.25;
 
-        // 1. Criticality immediately below title (with text wrapping)
+        // 1. Criticality immediately below title (Truncated to name only)
         if (finding.criticalityLevel) {
+          const shortCritLabel = finding.criticalityLevel.split('(')[0].trim();
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
-          const splitCrit = doc.splitTextToSize(`Criticality: ${finding.criticalityLevel}`, contentWidth);
-          doc.text(splitCrit, margin, currentY);
-          currentY += (splitCrit.length * 0.18) + 0.15;
+          doc.text(`Criticality: ${shortCritLabel}`, margin, currentY);
+          currentY += 0.25;
         }
 
         const startBlockY = currentY;
@@ -432,6 +491,22 @@ export const generatePdfReport = async (
   currentY += 0.7;
 
 
+
+  // ─── General Comments ─────────────────────────────────────────────────────
+  checkPageBreak(2.0);
+  currentY += 0.5;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text('General Comments:', margin, currentY);
+  currentY += 0.4;
+
+  doc.setDrawColor(150, 150, 150);
+  doc.line(margin, currentY, pageWidth - margin, currentY);
+  currentY += 0.4;
+  doc.line(margin, currentY, pageWidth - margin, currentY);
+  currentY += 0.4;
+  doc.line(margin, currentY, pageWidth - margin, currentY);
+  currentY += 0.5;
 
   const sanitizedTitle = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'inspection_report';
   doc.save(`${sanitizedTitle}.pdf`);
