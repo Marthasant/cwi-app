@@ -174,13 +174,13 @@ export const generatePdfReport = async (
     floorFindings.forEach((f, i) => {
       const shortFloor = floor.name.replace(/floor\s*/i, '').trim() || '1';
 
-      // Clean and strip the word "Risk" to leave only "Level X"
-      let shortCrit = f.criticalityLevel ? f.criticalityLevel.split(/[:\-]/)[0].trim() : 'Unassigned';
-      shortCrit = shortCrit.replace(/risk\s*/i, '').trim(); // Removes 'Risk' or 'risk'
+      // BULLETPROOF EXTRACTION: Only extract "Level X" and ignore everything else (like the word "Risk").
+      const levelMatch = f.criticalityLevel ? f.criticalityLevel.match(/Level\s\d/i) : null;
+      const shortCrit = levelMatch ? levelMatch[0] : 'Unassigned';
 
       indexBody.push([
         shortFloor,
-        shortCrit, // Now yields "Level 1", "Level 2", etc.
+        shortCrit, // This will strictly output "Level 1", "Level 2", etc.
         (i + 1).toString(),
         f.locationLabel || 'Unnamed',
         f.affectedArea || 'N/A',
