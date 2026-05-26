@@ -54,6 +54,8 @@ interface InspectionContextType {
   isAddingMode: boolean;
   setIsAddingMode: (mode: boolean) => void;
   clearInspection: () => void;
+  generalComments: string;
+  setGeneralComments: (text: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +79,7 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [generalComments, setGeneralComments] = useState<string>('');
 
   // Cloud state
   const [buildingId, setBuildingId] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setFloors(parsed.floors?.length ? parsed.floors : [DEFAULT_FLOOR]);
         setCurrentFloorId(parsed.currentFloorId || '1');
         setFindings(parsed.findings || []);
+        setGeneralComments(parsed.generalComments || '');
       }
     } catch (err) {
       console.error('[ctx] localStorage load failed:', err);
@@ -211,12 +215,13 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           floors,
           currentFloorId,
           findings,
+          generalComments,
         }));
       } catch (err) {
         console.error('[ctx] localStorage save failed:', err);
       }
     }
-  }, [projectTitle, inspectorName, floors, currentFloorId, findings, isLoaded]);
+  }, [projectTitle, inspectorName, floors, currentFloorId, findings, generalComments, isLoaded]);
 
   // ----- Floor helpers ------------------------------------------------------
   const addFloor = async () => {
@@ -362,6 +367,7 @@ export const InspectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         activeFindingId, setActiveFindingId,
         isAddingMode, setIsAddingMode,
         clearInspection,
+        generalComments, setGeneralComments,
       }}
     >
       {children}

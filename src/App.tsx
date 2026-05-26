@@ -16,6 +16,7 @@ const Dashboard: React.FC = () => {
     projectTitle, setProjectTitle, inspectorName, setInspectorName,
     floors, currentFloorId, setCurrentFloorId, addFloor, updateFloor, deleteFloor,
     isSyncing,
+    generalComments, setGeneralComments,
   } = useInspection();
 
   const [renamingFloorId, setRenamingFloorId] = useState<string | null>(null);
@@ -74,7 +75,8 @@ const Dashboard: React.FC = () => {
         inspectorName,
         signatureDataUrl,
         inspectionDate,
-        certNumber
+        certNumber,
+        generalComments
       );
     } catch (error) {
       console.error("PDF generation failed:", error);
@@ -331,6 +333,18 @@ const Dashboard: React.FC = () => {
                   placeholder="e.g. 9999999"
                 />
               </div>
+            </div>
+            {/* General Comments textarea */}
+            <div className="px-4 pb-4 bg-[#15181e]">
+              <label className="block text-xs text-slate-400 mb-1">General Report Comments</label>
+              <textarea
+                id="general-comments-input"
+                value={generalComments}
+                onChange={(e) => setGeneralComments(e.target.value)}
+                placeholder="Type overall inspection summaries or closing remarks here..."
+                rows={4}
+                className="w-full bg-dark-bg border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-brand-amber text-sm resize-none"
+              />
             </div>
             <div className="p-4 border-t border-dark-border bg-[#15181e] flex justify-end gap-3">
               <button 

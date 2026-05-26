@@ -50,7 +50,8 @@ export const generatePdfReport = async (
   inspectorName: string = "",
   signatureDataUrl?: string,
   inspectionDate: string = new Date().toLocaleDateString(),
-  certNumber: string = ''
+  certNumber: string = '',
+  generalComments: string = '' // New parameter
 ) => {
   // Helper to rank criticality (Level 1 is most critical)
   const getCritRank = (crit: string | undefined | null) => {
@@ -505,15 +506,26 @@ export const generatePdfReport = async (
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text('General Comments:', margin, currentY);
-  currentY += 0.4;
+  currentY += 0.3;
 
-  doc.setDrawColor(150, 150, 150);
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 0.4;
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 0.4;
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 0.5;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
+  if (generalComments && generalComments.trim().length > 0) {
+    // Print typed comments perfectly justified
+    doc.text(generalComments, margin, currentY, { maxWidth: contentWidth, align: 'justify' });
+    const splitCommentLines = doc.splitTextToSize(generalComments, contentWidth);
+    currentY += (splitCommentLines.length * 0.18) + 0.4;
+  } else {
+    // Fallback: draw blank lines if no comments were typed
+    doc.setDrawColor(150, 150, 150);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 0.4;
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 0.4;
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 0.5;
+  }
 
   const sanitizedTitle = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'inspection_report';
   doc.save(`${sanitizedTitle}.pdf`);
