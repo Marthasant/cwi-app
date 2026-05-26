@@ -171,14 +171,16 @@ export const generatePdfReport = async (
   floors.forEach(floor => {
     const floorFindings = sortedFindings.filter(f => f.floorId === floor.id);
     floorFindings.forEach((f, i) => {
-      // Remove the word "Floor" (case insensitive), leaving just the number/label
       const shortFloor = floor.name.replace(/floor\s*/i, '').trim() || '1';
-      const shortCrit = f.criticalityLevel ? f.criticalityLevel.split(/[:\-]/)[0].trim() : 'Unassigned';
+
+      // Clean and strip the word "Risk" to leave only "Level X"
+      let shortCrit = f.criticalityLevel ? f.criticalityLevel.split(/[:\-]/)[0].trim() : 'Unassigned';
+      shortCrit = shortCrit.replace(/risk\s*/i, '').trim(); // Removes 'Risk' or 'risk'
 
       indexBody.push([
-        shortFloor,              // Floor number only
-        shortCrit,               // Criticality
-        (i + 1).toString(),      // Finding # (Matches Map & Detail!)
+        shortFloor,
+        shortCrit, // Now yields "Level 1", "Level 2", etc.
+        (i + 1).toString(),
         f.locationLabel || 'Unnamed',
         f.affectedArea || 'N/A',
       ]);
@@ -195,22 +197,25 @@ export const generatePdfReport = async (
   });
 
 
-  // ─── METHODOLOGY & RISK MATRIX PAGE ─────────────────────────────────────
+  // ─── METHODOLOGY & RISK MATRIX PAGE ────────────────────────────────────────
   doc.addPage('letter', 'portrait');
   currentY = margin;
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  doc.text("6.0 STRUCTURAL RISK & PRIORITIZATION MATRIX", margin, currentY);
+  // Updated Spanish Title
+  doc.text("6.0 MATRIZ DE EVALUACI\u00d3N DE RIESGO ESTRUCTURAL", margin, currentY);
   currentY += 0.3;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   const introText = "Based on the field findings, base metal degradation, and the repair parameters outlined in AWS D1.1 (Clause 8), AWS D1.3, and AWS D1.4, the following 6-tier risk classification system has been established to guide the facility's maintenance schedule. MEP hazards (Gas/Sprinklers) are evaluated under NFPA guidelines.";
-  const splitIntro = doc.splitTextToSize(introText, contentWidth);
-  doc.text(splitIntro, margin, currentY);
-  currentY += (splitIntro.length * 0.18) + 0.2;
+
+  // Use native jsPDF justification options instead of manual pre-splitting
+  doc.text(introText, margin, currentY, { maxWidth: contentWidth, align: 'justify' });
+  const splitIntroLines = doc.splitTextToSize(introText, contentWidth);
+  currentY += (splitIntroLines.length * 0.18) + 0.2;
 
   const riskMatrix = [
     {
@@ -245,9 +250,11 @@ export const generatePdfReport = async (
     doc.text(risk.title, margin, currentY);
     currentY += 0.2;
     doc.setFont("helvetica", "normal");
-    const splitBody = doc.splitTextToSize(risk.body, contentWidth);
-    doc.text(splitBody, margin, currentY);
-    currentY += (splitBody.length * 0.18) + 0.2;
+
+    // Apply justified alignment to risk definitions
+    doc.text(risk.body, margin, currentY, { maxWidth: contentWidth, align: 'justify' });
+    const splitBodyLines = doc.splitTextToSize(risk.body, contentWidth);
+    currentY += (splitBodyLines.length * 0.18) + 0.2;
   });
 
   // ─── PER-FLOOR LOOP ──────────────────────────────────────────────────────
